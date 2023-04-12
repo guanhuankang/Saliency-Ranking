@@ -1,11 +1,8 @@
-import pickle as pkl
-import numpy as np
 import os
-import cv2
+import numpy as np
+from PIL import Image
+import tqdm
 import pandas as pd
-import copy
-import pickle, tqdm
-
 
 def calc_iou(mask_a, mask_b):
     intersection = (mask_a + mask_b >= 2).astype(np.float32).sum()
@@ -63,7 +60,7 @@ def evalu(results, iou_thread):
     p_sum = 0
     num = len(results)
 
-    for indx, result in tqdm.tqdm(enumerate(results)):
+    for indx, result in enumerate(results):
         print('\r{}/{}'.format(indx+1, len(results)), end="", flush=True)
         gt_masks = result['gt_masks']
         segmaps = result['segmaps']
@@ -84,29 +81,23 @@ def evalu(results, iou_thread):
 
         gt_index = pd.Series(gt_index)
         rank_index = pd.Series(rank_index)
-
         if rank_index.var() == 0:
             p = 0
         else:
             p = gt_index.corr(rank_index, method='pearson')
-
         if not np.isnan(p):
             p_sum += p
         else:
             num -= 1
 
     fianl_p = p_sum/num
-    print(fianl_p, num)
+    print(fianl_p)
     return fianl_p
 
-import os
-import numpy as np
-from PIL import Image
-import tqdm
-
 gtpath = r"D:\SaliencyRanking\dataset\irsr\Images\test\gt"
-L = [x for x in os.listdir(gtpath) if x.endswith(".png")]
 predpath = r"D:\SaliencyRanking\comparedResults\IRSR\saliency_maps"
+
+L = [x for x in os.listdir(gtpath) if x.endswith(".png")]
 input_data = []
 for name in tqdm.tqdm(L):
     gt = np.array(Image.open(os.path.join(gtpath, name)).convert("L"))
