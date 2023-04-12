@@ -64,8 +64,6 @@ def evalu(results, iou_thread):
     num = len(results)
 
     for indx, result in tqdm.tqdm(enumerate(results)):
-        if indx!=72: continue
-
         print('\r{}/{}'.format(indx+1, len(results)), end="", flush=True)
         gt_masks = result['gt_masks']
         segmaps = result['segmaps']
@@ -106,9 +104,9 @@ import numpy as np
 from PIL import Image
 import tqdm
 
-gtpath = r"D:\SaliencyRanking\dataset\ASSR\ASSR\gt\test"
+gtpath = r"D:\SaliencyRanking\dataset\irsr\Images\test\gt"
 L = [x for x in os.listdir(gtpath) if x.endswith(".png")]
-predpath = r"D:\SaliencyRanking\comparedResults\ASSR\predicted_saliency_maps"
+predpath = r"D:\SaliencyRanking\comparedResults\IRSR\saliency_maps"
 input_data = []
 for name in tqdm.tqdm(L):
     gt = np.array(Image.open(os.path.join(gtpath, name)).convert("L"))
