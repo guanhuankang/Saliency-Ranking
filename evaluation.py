@@ -91,7 +91,7 @@ class Evaluation:
 if __name__=="__main__":
     eval = Evaluation()
     eval(
-        round="ASSRonASSR",
-        pred_path=r"D:\SaliencyRanking\comparedResults\ASSR\predicted_saliency_maps",
-        gt_path=r"D:\SaliencyRanking\dataset\ASSR\ASSR\gt\test"
+        round="IRSRonIRSR",
+        pred_path=r"D:\SaliencyRanking\comparedResults\IRSR\saliency_maps",
+        gt_path=r"D:\SaliencyRanking\dataset\irsr\Images\test\gt"
     )
