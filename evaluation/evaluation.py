@@ -3,7 +3,19 @@ import datetime
 import numpy as np
 from PIL import Image
 from scipy import stats
-import tqdm
+import datetime
+import tqdm, json
+
+def loadJson(file):
+    if not os.path.exists(file):
+        return {}
+    with open(file, "r") as f:
+        data = json.load(f)
+    return data
+
+def dumpJson(data, file):
+    with open(file, "w") as f:
+        json.dump(data, f)
 
 class Evaluation:
     def __init__(self):
@@ -61,17 +73,31 @@ class Evaluation:
         g = gt.astype(float) / 255.
         return np.mean(np.abs(p - g))
 
-    def __call__(self, round, pred_path, gt_path):
-        lst = [name for name in os.listdir(pred_path) if name.endswith(".png")]
+    def acc(self, pred, gt):
+        DTYPE = np.uint8
+        assert pred.shape==gt.shape
+        assert pred.dtype==gt.dtype and pred.dtype==DTYPE
+        p = (pred > 0.0) * 1.0
+        g = (gt > 0.0) * 1.0
+        return 1.0 - np.mean(np.abs(p - g))
+
+    def __call__(self, name, pred_path, gt_path):
+        lst = [name for name in os.listdir(gt_path) if name.endswith(".png")]
         print("#test_set={}".format(len(lst)), flush=True)
 
         saSor_scores = []
         mae_scores = []
+        acc_scores = []
         valid = 0
         for name in tqdm.tqdm(lst):
-            pred = np.array(Image.open(os.path.join(pred_path, name)).convert("L"))
             gt = np.array(Image.open(os.path.join(gt_path, name)).convert("L"))
+            if os.path.exists(os.path.join(pred_path, name)):
+                pred = np.array(Image.open(os.path.join(pred_path, name)).convert("L"))
+            else:
+                pred = np.zeros_like(gt)
+
             mae_scores.append(self.mae(pred, gt))
+            acc_scores.append(self.acc(pred, gt))
             coff = self.saSOR(pred, gt)
             if np.isnan(coff):
                 saSor_scores.append(0)
@@ -79,19 +105,31 @@ class Evaluation:
                 saSor_scores.append(coff)
                 valid += 1
 
-        results = "testSet_len:{} valid:{} MAE:{} SA-SOR(valid):{} SA-SOR(zero):{}".format(
-            len(lst), valid, np.mean(mae_scores),
-            np.sum(saSor_scores)/valid,
-            np.mean(saSor_scores)
-        )
-        with open("evaluation.txt", "a") as f:
-            f.write("{} {}: {}\n".format(round, datetime.datetime.now(), results))
-        print(results)
+        ## save results
+        file_name = "evaluation.json"
+        time_indice = str(datetime.datetime.now()).replace(" ", "_")
+        history = loadJson(file_name)
+        history[time_indice] = {
+            "name": name,
+            "len": len(lst),
+            "valid": valid,
+            "accuracy": np.mean(acc_scores),
+            "mae": np.mean(mae_scores),
+            "SA-SOR(zero)": np.mean(saSor_scores),
+            "SA-SOR(valid)": np.sum(saSor_scores) / valid
+        }
+        print(history[time_indice], flush=True)
+        dumpJson(history, file_name)
 
 if __name__=="__main__":
     eval = Evaluation()
     eval(
-        round="IRSRonIRSR",
-        pred_path=r"D:\SaliencyRanking\comparedResults\IRSR\saliency_maps",
+        name="IRSRonIRSR",
+        pred_path=r"D:\SaliencyRanking\retrain_compared_results\IRSR\IRSR\prediction",
         gt_path=r"D:\SaliencyRanking\dataset\irsr\Images\test\gt"
+    )
+    eval(
+        name="PPAonASSR",
+        pred_path=r"D:\SaliencyRanking\retrain_compared_results\PPA\ASSR\saliency_map",
+        gt_path=r"D:\SaliencyRanking\dataset\ASSR\ASSR\gt\test"
     )
