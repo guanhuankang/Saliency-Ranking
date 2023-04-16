@@ -6,10 +6,11 @@ from PIL import Image
 from scipy import stats
 import datetime
 import tqdm, json
+import pandas as pd
 
 def loadJson(file):
     if not os.path.exists(file):
-        return {}
+        return []
     with open(file, "r") as f:
         data = json.load(f)
     return data
@@ -17,6 +18,9 @@ def loadJson(file):
 def dumpJson(data, file):
     with open(file, "w") as f:
         json.dump(data, f)
+
+def dumpXlsx(data, file):
+    pd.DataFrame(data).set_index("name").to_excel(file)
 
 class Evaluation:
     def __init__(self):
@@ -59,6 +63,38 @@ class Evaluation:
         rec = tp / (tp + fn + 1e-6)
         return ( 1.3 * pre * rec + 1e-6 ) / ( 0.3 * pre + rec + 1e-6 )
 
+    def SOR(self, pred, gt, thres = 0.5):
+        BG = 0
+        DTYPE = np.uint8
+        assert pred.shape==gt.shape
+        assert pred.dtype==gt.dtype and pred.dtype==DTYPE
+
+        gt_uni = np.unique(np.append(np.unique(gt), BG))
+        gt_map = dict( (x,r) for r,x in enumerate(gt_uni) )
+        pred_uni = np.unique(np.append(np.unique(pred), BG))
+        pred_map = dict( (x,r) for r,x in enumerate(pred_uni) )
+
+        pred_rank = []
+        gt_rank = []
+        for gval in gt_uni:
+            if gval==BG: continue
+            pred_inside_seg = np.where(gt==gval, pred, BG)
+            pred_inside_pixel = pred_inside_seg[np.where(pred_inside_seg > BG)]
+            pred_inside_num = len(pred_inside_pixel)
+            r = BG
+            if pred_inside_num > int((gt==gval).sum() * thres):
+                r = stats.mode(pred_inside_pixel, keepdims=False).mode
+            if r > BG:
+                pred_rank.append(pred_map[r])
+                gt_rank.append(gt_map[gval])
+        if len(gt_rank) > 1:
+            spr = stats.spearmanr(pred_rank, gt_rank).statistic
+            return spr ## normalize
+        elif len(gt_rank) == 1:
+            return 1
+        else:
+            return np.nan
+
     def saSOR(self, pred, gt, thres = 0.5):
         BG = 0
         DTYPE = np.uint8
@@ -73,14 +109,14 @@ class Evaluation:
         matrixs = []
         for gval in gt_uni:
             if gval==BG: continue
-            for pval in pred_uni:
-                if pval==BG: continue
-                iou = self.IOU(pred==pval, gt==gval)
-                if iou >= thres:
-                    matrixs.append( (iou, gt_map[gval], pred_map[pval]) )
+            pval = stats.mode(pred[np.where(gt == gval)], keepdims=False).mode
+            if pval==BG: continue
+            iou = self.IOU(pred==pval, gt==gval)
+            if iou >= thres:
+                matrixs.append( (iou, gt_map[gval], pred_map[pval]) )
         matrixs.sort(reverse=True)
 
-        ## calc SA-SOR (and SOR)
+        ## calc SA-SOR
         gt_rank = []
         pred_rank = []
         for item in matrixs:
@@ -89,19 +125,11 @@ class Evaluation:
                 gt_rank.append(g_r)
                 pred_rank.append(p_r)
 
-        sor_is_valid = True
         for r in range(1, len(gt_uni)):
             if r not in gt_rank:
                 gt_rank.append(r)
                 pred_rank.append(0)
-                sor_is_valid = False
-        sa_sor = np.corrcoef(pred_rank, gt_rank)[0, 1]
-        sor = scipy.stats.spearmanr(pred_rank, gt_rank).statistic if sor_is_valid else np.nan
-
-        return {
-            "SA-SOR": sa_sor,
-            "SOR": sor
-        }
+        return np.corrcoef(pred_rank, gt_rank)[0, 1]
 
     def __call__(self, test_name, pred_path, gt_path):
         lst = [name for name in os.listdir(gt_path) if name.endswith(".png")]
@@ -113,9 +141,7 @@ class Evaluation:
         iou_scores = []
 
         saSor_scores = []
-        saSor_valid = 0
         sor_scores = []
-        sor_valid = 0
 
         for name in tqdm.tqdm(lst):
             gt = np.array(Image.open(os.path.join(gt_path, name)).convert("L"))
@@ -129,19 +155,19 @@ class Evaluation:
             fbeta_scores.append(self.fbeta(pred, gt))
             iou_scores.append(self.IOU(pred, gt))
 
-            coff = self.saSOR(pred, gt)
-            sa_sor, sor = coff["SA-SOR"], coff["SOR"]
-            saSor_scores.append(0.0 if np.isnan(sa_sor) else sa_sor)
-            saSor_valid += 0 if np.isnan(sa_sor) else 1
-            sor_scores.append( 0.0 if np.isnan(sor) else sor )
-            sor_valid += 0 if np.isnan(sor) else 1
+            sa_sor = self.saSOR(pred, gt)
+            if not np.isnan(sa_sor):
+                saSor_scores.append(sa_sor)
+
+            sor = self.SOR(pred, gt)
+            if not np.isnan(sor):
+                sor_scores.append(sor)
 
         ## save results
         file_name = "evaluation.json"
         time_indice = str(datetime.datetime.now()).replace(" ", "_")
         history = loadJson(file_name)
-        if test_name not in history: history[test_name] = []
-        history[test_name].append({
+        history.append({
             "name": test_name,
             "time": time_indice,
             "len": len(lst),
@@ -149,34 +175,27 @@ class Evaluation:
             "mae": np.mean(mae_scores),
             "fbeta": np.mean(fbeta_scores),
             "iou": np.mean(iou_scores),
-            "SA-SOR(zero)": np.mean(saSor_scores),
-            "sa_sor_valid": saSor_valid,
-            "SOR(zero)": np.mean(sor_scores),
-            "sor_valid": sor_valid
+            "SA-SOR": np.sum(saSor_scores) / len(lst),
+            "sa_sor_valid": len(saSor_scores),
+            "SOR(valid)": (np.mean(sor_scores) + 1.0)/2.0,
+            "sor_valid": len(sor_scores)
         })
-        print(history[test_name][-1], flush=True)
+        print(history[-1], flush=True)
         dumpJson(history, file_name)
+        dumpXlsx(history, file_name.replace(".json", ".xlsx"))
 
 if __name__=="__main__":
     eval = Evaluation()
     irsr_gt = r"D:\SaliencyRanking\dataset\irsr\Images\test\gt"
     assr_gt = r"D:\SaliencyRanking\dataset\ASSR\ASSR\gt\test"
 
-    ## IRSR
     eval(
-        test_name="IRSRonIRSR",
-        pred_path=r"D:\SaliencyRanking\retrain_compared_results\IRSR\IRSR\prediction",
-        gt_path=irsr_gt
-    )
-
-    ## PPA
-    eval(
-        test_name="PPAonASSR",
-        pred_path=r"D:\SaliencyRanking\retrain_compared_results\PPA\ASSR\saliency_map",
+        test_name="Siris_on_ASSR",
+        pred_path=r"D:\SaliencyRanking\comparedResults\ASSR\ASSR\predicted_saliency_maps",
         gt_path=assr_gt
     )
     eval(
-        test_name="PPAonIRSR",
-        pred_path=r"D:\SaliencyRanking\retrain_compared_results\PPA\IRSR\saliency_map",
+        test_name="Liu_on_IRSR",
+        pred_path=r"D:\SaliencyRanking\comparedResults\IRSR\saliency_maps",
         gt_path=irsr_gt
     )
