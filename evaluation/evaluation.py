@@ -103,7 +103,7 @@ class Evaluation:
             "SOR": sor
         }
 
-    def __call__(self, name, pred_path, gt_path):
+    def __call__(self, test_name, pred_path, gt_path):
         lst = [name for name in os.listdir(gt_path) if name.endswith(".png")]
         print("#test_set={}".format(len(lst)), flush=True)
 
@@ -140,8 +140,10 @@ class Evaluation:
         file_name = "evaluation.json"
         time_indice = str(datetime.datetime.now()).replace(" ", "_")
         history = loadJson(file_name)
-        history[time_indice] = {
-            "name": name,
+        if test_name not in history: history[test_name] = []
+        history[test_name].append({
+            "name": test_name,
+            "time": time_indice,
             "len": len(lst),
             "accuracy": np.mean(acc_scores),
             "mae": np.mean(mae_scores),
@@ -151,7 +153,7 @@ class Evaluation:
             "sa_sor_valid": saSor_valid,
             "SOR(zero)": np.mean(sor_scores),
             "sor_valid": sor_valid
-        }
+        })
         print(history[time_indice], flush=True)
         dumpJson(history, file_name)
 
@@ -162,19 +164,19 @@ if __name__=="__main__":
 
     ## IRSR
     eval(
-        name="IRSRonIRSR",
+        test_name="IRSRonIRSR",
         pred_path=r"D:\SaliencyRanking\retrain_compared_results\IRSR\IRSR\prediction",
         gt_path=irsr_gt
     )
 
     ## PPA
     eval(
-        name="PPAonASSR",
+        test_name="PPAonASSR",
         pred_path=r"D:\SaliencyRanking\retrain_compared_results\PPA\ASSR\saliency_map",
         gt_path=assr_gt
     )
     eval(
-        name="PPAonIRSR",
+        test_name="PPAonIRSR",
         pred_path=r"D:\SaliencyRanking\retrain_compared_results\PPA\IRSR\saliency_map",
         gt_path=irsr_gt
     )
