@@ -154,7 +154,7 @@ class Evaluation:
             "SOR(zero)": np.mean(sor_scores),
             "sor_valid": sor_valid
         })
-        print(history[time_indice], flush=True)
+        print(history[test_name][-1], flush=True)
         dumpJson(history, file_name)
 
 if __name__=="__main__":
