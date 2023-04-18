@@ -16,6 +16,18 @@ pred_assr = r"D:\SaliencyRanking\retrain_compared_results\PPA\ASSR\saliency_map"
 eval(test_name="PPAonIRSR", pred_path=pred_irsr, gt_path=irsr_gt)
 eval(test_name="PPAonASSR", pred_path=pred_assr, gt_path=assr_gt)
 
+## Download Results
+eval(
+    test_name="Siris_on_ASSR",
+    pred_path=r"D:\SaliencyRanking\comparedResults\ASSR\ASSR\predicted_saliency_maps",
+    gt_path=assr_gt
+)
+eval(
+    test_name="Liu_on_IRSR",
+    pred_path=r"D:\SaliencyRanking\comparedResults\IRSR\saliency_maps",
+    gt_path=irsr_gt
+)
+
 exit(0)
 
 ## 2020-CVPR ASSR

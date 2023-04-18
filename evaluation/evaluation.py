@@ -63,6 +63,39 @@ class Evaluation:
         rec = tp / (tp + fn + 1e-6)
         return ( 1.3 * pre * rec + 1e-6 ) / ( 0.3 * pre + rec + 1e-6 )
 
+    def AP(self, pred, gt, thres = 0.5):
+        BG = 0
+        DTYPE = np.uint8
+        assert pred.shape==gt.shape
+        assert pred.dtype==gt.dtype and pred.dtype==DTYPE
+
+        gt_uni = np.unique(np.append(np.unique(gt), BG))
+        gt_map = dict( (x,r) for r,x in enumerate(gt_uni) )
+        pred_uni = np.unique(np.append(np.unique(pred), BG))
+        pred_map = dict( (x,r) for r,x in enumerate(pred_uni) )
+
+        matrixs = []
+        for gval in gt_uni:
+            if gval==BG: continue
+            pval = stats.mode(pred[np.where(gt == gval)], keepdims=False).mode
+            if pval==BG: continue
+            iou = self.IOU(pred==pval, gt==gval)
+            if iou >= thres:
+                matrixs.append( (iou, gt_map[gval], pred_map[pval]) )
+
+        n_gt = len(gt_uni) - 1
+        n_pred = len(pred_uni) - 1
+        hit_pred = np.unique([x[-1] for x in matrixs])
+        n_hit = len(hit_pred)
+
+        if n_gt<=0:
+            ap = 0.0 if n_pred>0 else 1.0
+            rec = 1.0
+        else:
+            ap = (n_hit / n_pred) if n_pred>0 else 0.0
+            rec = n_hit / n_gt
+        return ap, rec
+
     def SOR(self, pred, gt, thres = 0.5):
         BG = 0
         DTYPE = np.uint8
@@ -143,6 +176,9 @@ class Evaluation:
         saSor_scores = []
         sor_scores = []
 
+        ap_scores = []
+        rec_scores = []
+
         for name in tqdm.tqdm(lst):
             gt = np.array(Image.open(os.path.join(gt_path, name)).convert("L"))
             if os.path.exists(os.path.join(pred_path, name)):
@@ -154,6 +190,10 @@ class Evaluation:
             acc_scores.append(self.acc(pred, gt))
             fbeta_scores.append(self.fbeta(pred, gt))
             iou_scores.append(self.IOU(pred, gt))
+
+            ap, rec = self.AP(pred, gt)
+            ap_scores.append(ap)
+            rec_scores.append(rec)
 
             sa_sor = self.saSOR(pred, gt)
             if not np.isnan(sa_sor):
@@ -175,6 +215,8 @@ class Evaluation:
             "mae": np.mean(mae_scores),
             "fbeta": np.mean(fbeta_scores),
             "iou": np.mean(iou_scores),
+            "AP": np.mean(ap_scores),
+            "recall": np.mean(rec_scores),
             "SA-SOR": np.sum(saSor_scores) / len(lst),
             "sa_sor_valid": len(saSor_scores),
             "SOR(valid)": (np.mean(sor_scores) + 1.0)/2.0,
