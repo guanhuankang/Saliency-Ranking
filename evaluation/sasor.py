@@ -94,8 +94,10 @@ def evalu(results, iou_thread):
     print(fianl_p)
     return fianl_p
 
-gtpath = r"D:\SaliencyRanking\dataset\irsr\Images\test\gt"
-predpath = r"D:\SaliencyRanking\comparedResults\IRSR\saliency_maps"
+# gtpath = r"D:\SaliencyRanking\dataset\irsr\Images\test\gt"
+# predpath = r"D:\SaliencyRanking\comparedResults\IRSR\saliency_maps"
+gtpath = r"D:\SaliencyRanking\dataset\ASSR\ASSR\gt\test"
+predpath = r"D:\SaliencyRanking\retrain_compared_results\ASSR\ASSR\saliency_maps"
 
 L = [x for x in os.listdir(gtpath) if x.endswith(".png")]
 input_data = []

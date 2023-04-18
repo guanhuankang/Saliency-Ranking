@@ -232,6 +232,11 @@ if __name__=="__main__":
     assr_gt = r"D:\SaliencyRanking\dataset\ASSR\ASSR\gt\test"
 
     eval(
+        test_name="ASSR_on_ASSR",
+        pred_path=r"D:\SaliencyRanking\retrain_compared_results\ASSR\ASSR\saliency_maps",
+        gt_path=assr_gt
+    )
+    eval(
         test_name="Siris_on_ASSR",
         pred_path=r"D:\SaliencyRanking\comparedResults\ASSR\ASSR\predicted_saliency_maps",
         gt_path=assr_gt
