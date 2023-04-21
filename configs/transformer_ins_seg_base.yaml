@@ -1,0 +1,35 @@
+MODEL:
+    META_ARCHITECTURE: "ToyModel"
+DATASETS:
+    TRAIN: ("assr_train",)
+    TEST: ("assr_test",)
+    ROOT: "/home/luke/dataset/SOR_RANK"
+DATALOADER:
+    NUM_WORKERS: 4
+SOLVER:
+    IMS_PER_BATCH: 16
+    BASE_LR: 0.02
+    WARMUP_FACTOR: 1.0
+    WARMUP_ITERS: 10
+    WARMUP_METHOD: linear
+    STEPS: (26000, 28000)
+    MAX_ITER: 30000
+    CHECKPOINT_PERIOD: 5000
+    AMP:
+        ENABLED: true
+    REFERENCE_WORLD_SIZE: 0
+INPUT:
+    MIN_SIZE_TRAIN: (480,640)
+    MIN_SIZE_TEST: 640
+    MAX_SIZE_TEST: 1333
+    FORMAT: "RGB"
+OUTPUT_DIR: "output/checkpoints/"
+TEST:
+    AUG:
+        ENABLED: false
+    EVAL_PERIOD: 5000
+    EXPECTED_RESULTS: []
+    PRECISE_BN:
+        ENABLED: false
+        NUM_ITER: 200
+VERSION: 2
