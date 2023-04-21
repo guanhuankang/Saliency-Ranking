@@ -14,7 +14,7 @@ from detectron2.evaluation import (
 
 from configs.add_custom_config import add_custom_config
 from dataset import register_sor_dataset
-from Toy import ToyModel
+from SRNet import SRNet
 
 class Trainer(DefaultTrainer):
     @classmethod

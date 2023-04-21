@@ -1,0 +1,1 @@
+python train_net.py --config-file configs/ior_sor_base.yaml --num-gpus 1

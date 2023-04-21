@@ -1,0 +1,63 @@
+MODEL:
+    META_ARCHITECTURE: "SRNet"
+    BACKBONE:
+        NAME: "D2SwinTransformer"
+        NUM_FEATURES: (64,256,1024,2048)
+    SWIN:
+        EMBED_DIM: 128
+        DEPTHS: [2, 2, 18, 2]
+        NUM_HEADS: [4, 8, 16, 32]
+        WINDOW_SIZE: 12
+        APE: False
+        DROP_PATH_RATE: 0.3
+        PATCH_NORM: True
+        PRETRAIN_IMG_SIZE: 384
+    WEIGHTS: "swin_base_patch4_window12_384.pkl"
+    IOR_MASK_ENCODER:
+        HIDDEN_DIM: 32
+        NUM_HEAD: 8
+    IOR_TRANSFORMER:
+        DIM: 256
+        FFN_DIM: 512
+        FFN_DROP: 0.0
+    IORHEAD:
+        DIM: 256
+        HIDDEN_DIM: 512
+        OUT_DIM: 256
+    IOR_DECODER_BLOCK:
+        USED_LEVELS: (-1,-2,-3)
+    IOR_DECODER:
+        NUM_BLOCKS: 2
+DATASETS:
+    TRAIN: ("assr_train",)
+    TEST: ("assr_test",)
+    ROOT: "/home/luke/dataset/SOR_RANK"
+DATALOADER:
+    NUM_WORKERS: 4
+SOLVER:
+    IMS_PER_BATCH: 16
+    BASE_LR: 0.02
+    WARMUP_FACTOR: 1.0
+    WARMUP_ITERS: 10
+    WARMUP_METHOD: linear
+    STEPS: (26000, 28000)
+    MAX_ITER: 30000
+    CHECKPOINT_PERIOD: 5000
+    AMP:
+        ENABLED: true
+    REFERENCE_WORLD_SIZE: 0
+INPUT:
+    MIN_SIZE_TRAIN: (480,640)
+    MIN_SIZE_TEST: 640
+    MAX_SIZE_TEST: 1333
+    FORMAT: "RGB"
+OUTPUT_DIR: "output/checkpoints/"
+TEST:
+    AUG:
+        ENABLED: false
+    EVAL_PERIOD: 5000
+    EXPECTED_RESULTS: []
+    PRECISE_BN:
+        ENABLED: false
+        NUM_ITER: 200
+VERSION: 2
