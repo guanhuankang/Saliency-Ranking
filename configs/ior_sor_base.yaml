@@ -1,8 +1,12 @@
 MODEL:
     META_ARCHITECTURE: "SRNet"
+    PIXEL_MEAN: [123.675, 116.280, 103.530]
+    PIXEL_STD: [58.395, 57.120, 57.375]
     BACKBONE:
         NAME: "D2SwinTransformer"
         NUM_FEATURES: (64,256,1024,2048)
+    FPN:
+        DIM: 256
     SWIN:
         EMBED_DIM: 128
         DEPTHS: [2, 2, 18, 2]
@@ -31,7 +35,7 @@ MODEL:
 DATASETS:
     TRAIN: ("assr_train",)
     TEST: ("assr_test",)
-    ROOT: "/home/luke/dataset/SOR_RANK"
+    ROOT: "/home/luke/dataset/SOR_RANK/coco_sor"
 DATALOADER:
     NUM_WORKERS: 4
 SOLVER:
@@ -47,6 +51,8 @@ SOLVER:
         ENABLED: true
     REFERENCE_WORLD_SIZE: 0
 INPUT:
+    FT_SIZE_TRAIN: 800
+    FT_SIZE_TEST: 800
     MIN_SIZE_TRAIN: (480,640)
     MIN_SIZE_TEST: 640
     MAX_SIZE_TEST: 1333

@@ -1,1 +1,2 @@
 from .sor_dataset_register import register_sor_dataset
+from .sor_dataset_mapper import sor_dataset_mapper

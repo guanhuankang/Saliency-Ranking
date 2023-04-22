@@ -6,6 +6,9 @@ def add_custom_config(cfg):
     cfg.MODEL.BACKBONE = CN()
     cfg.MODEL.BACKBONE.NAME = ""
     cfg.MODEL.BACKBONE.NUM_FEATURES = []
+
+    cfg.MODEL.FPN = CN()
+    cfg.MODEL.FPN.DIM = 256
     
     cfg.MODEL.IOR_MASK_ENCODER = CN()
     cfg.MODEL.IOR_MASK_ENCODER.HIDDEN_DIM = 32
@@ -49,3 +52,6 @@ def add_custom_config(cfg):
     
     cfg.TEST.AUG = CN()
     cfg.TEST.AUG.ENABLED = False
+
+    cfg.INPUT.FT_SIZE_TRAIN = 800
+    cfg.INPUT.FT_SIZE_TEST = 800
