@@ -14,8 +14,8 @@ class SRNet(nn.Module):
         self.necknet = FPN(cfg)
         self.decoder = IORDecoder(cfg)
 
-        self.pixel_mean = torch.tensor(cfg.MODEL.PIXEL_MEAN).reshape(1,3,1,1)
-        self.pixel_std = torch.tensor(cfg.MODEL.PIXEL_STD).reshape(1,3,1,1)
+        self.register_buffer("pixel_mean", torch.tensor(cfg.MODEL.PIXEL_MEAN).reshape(1,-1,1,1), False)
+        self.register_buffer("pixel_std", torch.tensor(cfg.MODEL.PIXEL_STD).reshape(1,3,1,1), False)
     
     @property
     def device(self):
@@ -28,10 +28,10 @@ class SRNet(nn.Module):
         masks = torch.stack([torch.from_numpy(s["mask"]).float() for s in batch_dict], dim=0).unsqueeze(1)
         scores = torch.tensor([s["score"] for s in batch_dict]).reshape(-1,1)
         return {
-            "images": images,
-            "ior_masks": ior_masks.to(self.device),
-            "masks": masks.to(self.device),
-            "scores": scores.to(self.device)
+            "images": images.contiguous(),
+            "ior_masks": ior_masks.to(self.device).contiguous(),
+            "masks": masks.to(self.device).contiguous(),
+            "scores": scores.to(self.device).contiguous()
         }
     
     def extract_test(self, batch_dict):
@@ -50,7 +50,7 @@ class SRNet(nn.Module):
         if self.training:
             data = self.extract_train(batch_dict)
             feats = self.extract_features(data["images"])
-            results = self.decoder(feats, data["ior_mask"])
+            results = self.decoder(feats, data["ior_masks"])
 
             mask_loss = sum([
                 F.binary_cross_entropy_with_logits(r["mask"], data["masks"]) * w
@@ -60,6 +60,11 @@ class SRNet(nn.Module):
                 F.binary_cross_entropy_with_logits(r["score"], data["scores"]) * w
                 for r,w in zip(results, self.cfg.MODEL.IOR_DECODER.LOSS_WEIGHTS)
             ])
+
+            import pickle
+            with open("output/{}.pkl".format(batch_dict[0]["image_id"]), "wb") as f:
+                pickle.dump({"results":results, "data": data}, f)
+
             return {
                 "mask_loss": mask_loss,
                 "cls_loss": cls_loss

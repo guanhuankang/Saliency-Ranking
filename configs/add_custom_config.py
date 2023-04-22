@@ -5,14 +5,16 @@ def add_custom_config(cfg):
 
     cfg.MODEL.BACKBONE = CN()
     cfg.MODEL.BACKBONE.NAME = ""
-    cfg.MODEL.BACKBONE.NUM_FEATURES = []
+    cfg.MODEL.BACKBONE.NUM_FEATURES = [128, 256, 512, 1024]
+    cfg.MODEL.BACKBONE.FEATURE_KEYS = ["res2", "res3", "res4", "res5"]
 
-    cfg.MODEL.FPN = CN()
-    cfg.MODEL.FPN.DIM = 256
+    cfg.MODEL.NECK = CN()
+    cfg.MODEL.NECK.DIM = 256
     
     cfg.MODEL.IOR_MASK_ENCODER = CN()
     cfg.MODEL.IOR_MASK_ENCODER.HIDDEN_DIM = 32
     cfg.MODEL.IOR_MASK_ENCODER.NUM_HEAD = 8
+    cfg.MODEL.IOR_MASK_ENCODER.FEATURE_KEYS = ["res2", "res3", "res4", "res5"]
 
     cfg.MODEL.IOR_TRANSFORMER = CN()
     cfg.MODEL.IOR_TRANSFORMER.DIM = 256
