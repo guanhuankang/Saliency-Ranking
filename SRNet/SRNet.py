@@ -60,11 +60,6 @@ class SRNet(nn.Module):
                 F.binary_cross_entropy_with_logits(r["score"], data["scores"]) * w
                 for r,w in zip(results, self.cfg.MODEL.IOR_DECODER.LOSS_WEIGHTS)
             ])
-
-            import pickle
-            with open("output/{}.pkl".format(batch_dict[0]["image_id"]), "wb") as f:
-                pickle.dump({"results":results, "data": data}, f)
-
             return {
                 "mask_loss": mask_loss,
                 "cls_loss": cls_loss
