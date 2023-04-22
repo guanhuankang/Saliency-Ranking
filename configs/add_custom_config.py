@@ -52,6 +52,10 @@ def add_custom_config(cfg):
     cfg.MODEL.SWIN.USE_CHECKPOINT = False
 
     cfg.DATASETS.ROOT = ""
+
+    cfg.SOLVER.BACKBONE_MULTIPLIER = 0.1
+    cfg.SOLVER.OPTIMIZER = "ADAMW"
+    cfg.SOLVER.WEIGHT_DECAY_EMBED = 0.0
     
     cfg.TEST.AUG = CN()
     cfg.TEST.AUG.ENABLED = False
