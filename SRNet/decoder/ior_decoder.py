@@ -180,15 +180,14 @@ class IORDecoder(nn.Module):
             ior_mask: R^{B,1,H,W}
         @return:
             resutls: list of dict with following fields:
-                pred_mask: logit of predicted mask
+                mask: logit of predicted mask
                 score: saliency score (logit)
                 stage: 1/2/... (stage No.)
-                ior_mask: ior_mask (same as input)
         '''
         if ior_mask==None:
             ior_mask = F.interpolate(torch.zeros_like(x[0]), scale_factor=32, mode="nearest")
 
-        collect_results = lambda p,s: {"pred_mask": p, "score": s, "ior_mask": ior_mask}
+        collect_results = lambda p,s: {"mask": p, "score": s}
         results = []
 
         query = torch.mean(x[0], dim=[-1,-2], keepdim=True).transpose(-1,-2) ## B,1,C

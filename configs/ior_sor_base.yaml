@@ -32,6 +32,7 @@ MODEL:
         USED_LEVELS: (-1,-2,-3)
     IOR_DECODER:
         NUM_BLOCKS: 2
+        LOSS_WEIGHTS: (0.4, 1.0)
 DATASETS:
     TRAIN: ("assr_train",)
     TEST: ("assr_test",)

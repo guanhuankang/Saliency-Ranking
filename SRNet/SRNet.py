@@ -27,15 +27,57 @@ class SRNet(nn.Module):
         ior_masks = torch.stack([torch.from_numpy(s["ior_mask"]).float() for s in batch_dict], dim=0).unsqueeze(1)
         masks = torch.stack([torch.from_numpy(s["mask"]).float() for s in batch_dict], dim=0).unsqueeze(1)
         scores = torch.tensor([s["score"] for s in batch_dict]).reshape(-1,1)
-
         return {
             "images": images,
             "ior_masks": ior_masks.to(self.device),
             "masks": masks.to(self.device),
             "scores": scores.to(self.device)
         }
+    
+    def extract_test(self, batch_dict):
+        images = torch.stack([torch.from_numpy(s["image"]).float() for s in batch_dict], dim=0).permute(0,3,1,2).to(self.device)
+        images = (images - self.pixel_mean) / self.pixel_std
+        ior_masks = torch.stack([
+            torch.from_numpy(s["ior_mask"]).float() if ("ior_mask" in s) else torch.zeros_like(s["image"]).float().mean(dim=2, keepdim=False)
+            for s in batch_dict
+        ], dim=0).unsqueeze(1)
+        return {"images": images, "ior_masks": ior_masks}
+
+    def extract_features(self, x):
+        return self.necknet(self.backbone(x))
 
     def forward(self, batch_dict, *args, **argw):
-        data = self.extract_train(batch_dict)
-        print(data["scores"].device)
-        exit(0)
+        if self.training:
+            data = self.extract_train(batch_dict)
+            feats = self.extract_features(data["images"])
+            results = self.decoder(feats, data["ior_mask"])
+
+            mask_loss = sum([
+                F.binary_cross_entropy_with_logits(r["mask"], data["masks"]) * w
+                for r,w in zip(results, self.cfg.MODEL.IOR_DECODER.LOSS_WEIGHTS)
+            ])
+            cls_loss = sum([
+                F.binary_cross_entropy_with_logits(r["score"], data["scores"]) * w
+                for r,w in zip(results, self.cfg.MODEL.IOR_DECODER.LOSS_WEIGHTS)
+            ])
+            return {
+                "mask_loss": mask_loss,
+                "cls_loss": cls_loss
+            }
+        else:
+            ## Inference
+            data = self.extract_test(batch_dict)
+            feats = self.extract_features(data["images"])
+            results = []
+            ior_masks = data["ior_masks"]
+            while True:
+                stage = self.decoder(feats, ior_masks)[-1] ## get last stage
+                score = torch.sigmoid(stage["score"])
+                mask = torch.sigmoid(stage["mask"])
+                if score > 0.5:
+                    results.append({"mask": mask, "score": score})
+                    ior_masks = torch.clamp(ior_masks + mask, 0.0, 1.0)
+                else:
+                    break
+            return results
+
