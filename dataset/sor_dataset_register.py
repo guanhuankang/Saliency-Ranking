@@ -15,9 +15,6 @@ def prepare_sor_dataset_list_of_dict(dataset_id, split, root="datasets"):
 
     image_path = os.path.join(root, dataset_id, "images", split)
     dataset_data = dataset["data"]
-    
-    if split=="test" or split=="val": ## debug
-        dataset_data = dataset_data[0:16]
 
     for i in range(len(dataset_data)):
         dataset_data[i]["file_name"] = os.path.join(image_path, dataset_data[i]["image_name"]+".jpg")
