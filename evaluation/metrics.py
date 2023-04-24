@@ -186,7 +186,10 @@ class Metrics:
                     pred_ranks.append(n_pred - j)
                     break
         if len(gt_ranks) > 1:
-            spr = stats.spearmanr(pred_ranks, gt_ranks).statistic
+            try:
+                spr = stats.spearmanr(pred_ranks, gt_ranks).statistic
+            except:
+                spr = stats.spearmanr(pred_ranks, gt_ranks).correlation
             return (spr + 1.0)/2.0
         elif len(gt_ranks) == 1:
             return 1.0
