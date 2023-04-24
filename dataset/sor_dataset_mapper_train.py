@@ -24,7 +24,7 @@ def sampleRank(ranks):
     target = 0 if target>num_level else target ## if target>num_level means we mask all sal objs
     return target
 
-def sor_dataset_mapper(dataset_dict, cfg):
+def sor_dataset_mapper_train(dataset_dict, cfg):
     dataset_dict = copy.deepcopy(dataset_dict)
     image = read_image(dataset_dict["file_name"], format="RGB")
     ranks = [anno["category_id"] for anno in dataset_dict["annotations"]]
@@ -55,13 +55,13 @@ def sor_dataset_mapper(dataset_dict, cfg):
 
     return {
         "image_name": dataset_dict["image_name"],
-        "image": image,
+        "image_id": dataset_dict["image_id"],
         "height": dataset_dict["height"],
         "width": dataset_dict["width"],
-        "image_id": dataset_dict["image_id"],
+        # "rank": target,
+        # "ranks": ranks,
+        "image": image,
         "ior_mask": ior_mask,
         "mask": mask,
-        "score": 1.0 if target>0 else 0.0,
-        "rank": target,
-        "ranks": ranks
+        "score": 1.0 if target>0 else 0.0
     }

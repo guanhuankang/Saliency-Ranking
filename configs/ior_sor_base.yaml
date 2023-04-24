@@ -38,7 +38,7 @@ MODEL:
         LOSS_WEIGHTS: (0.4, 1.0)
 DATASETS:
     TRAIN: ("assr_train",)
-    TEST: ("assr_test",)
+    TEST: ("assr_val",)
     ROOT: "/home/luke/dataset/SOR_RANK/coco_sor"
 DATALOADER:
     NUM_WORKERS: 4
@@ -73,11 +73,14 @@ INPUT:
     FORMAT: "RGB"
 OUTPUT_DIR: "output/checkpoints/"
 TEST:
-    AUG:
-        ENABLED: false
     EVAL_PERIOD: 5000
+    UTMOST_OBJECTS: 20
+    METRICS_OF_INTEREST: ["mae", "acc", "fbeta", "iou", "sa_sor", "sor", "ap", "ar"]
+    THRESHOLD: 0.5
     EXPECTED_RESULTS: []
     PRECISE_BN:
         ENABLED: false
         NUM_ITER: 200
+    AUG:
+        ENABLED: false
 VERSION: 2

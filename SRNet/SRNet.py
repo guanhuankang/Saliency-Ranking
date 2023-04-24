@@ -38,10 +38,13 @@ class SRNet(nn.Module):
         images = torch.stack([torch.from_numpy(s["image"]).float() for s in batch_dict], dim=0).permute(0,3,1,2).to(self.device)
         images = (images - self.pixel_mean) / self.pixel_std
         ior_masks = torch.stack([
-            torch.from_numpy(s["ior_mask"]).float() if ("ior_mask" in s) else torch.zeros_like(s["image"]).float().mean(dim=2, keepdim=False)
+            torch.from_numpy(s["ior_mask"]).float() if ("ior_mask" in s) else torch.zeros(s["image"].shape[0:2])
             for s in batch_dict
         ], dim=0).unsqueeze(1)
-        return {"images": images, "ior_masks": ior_masks}
+        return {
+            "images": images.contiguous(), 
+            "ior_masks": ior_masks.to(self.device).contiguous()
+        }
 
     def extract_features(self, x):
         return self.necknet(self.backbone(x))
@@ -67,17 +70,29 @@ class SRNet(nn.Module):
         else:
             ## Inference
             data = self.extract_test(batch_dict)
-            feats = self.extract_features(data["images"])
-            results = []
             ior_masks = data["ior_masks"]
-            while True:
-                stage = self.decoder(feats, ior_masks)[-1] ## get last stage
-                score = torch.sigmoid(stage["score"])
-                mask = torch.sigmoid(stage["mask"])
-                if score > 0.5:
-                    results.append({"mask": mask, "score": score})
-                    ior_masks = torch.clamp(ior_masks + mask, 0.0, 1.0)
-                else:
-                    break
+            feats = self.extract_features(data["images"])
+
+            results = []
+            for b_i in range(len(batch_dict)):
+                ior_mask = ior_masks[b_i:b_i+1]
+                feat = dict( (k,v[b_i:b_i+1]) for k,v in feats.items() )
+                utmost_objects = batch_dict[b_i].get("utmost_objects") or self.cfg.TEST.UTMOST_OBJECTS
+                H, W = batch_dict[b_i]["height"], batch_dict[b_i]["width"]
+                image_name = batch_dict[b_i]["image_name"]
+                masks = []
+                scores = []
+                while utmost_objects>0:
+                    stage = self.decoder(feat, ior_mask)[-1] ## get last stage
+                    score = torch.sigmoid(stage["score"])[0,0] ## scalar
+                    mask = torch.sigmoid(stage["mask"]) ## 1,1,~,~
+                    if score > 0.5:
+                        ior_mask = torch.clamp(ior_mask + mask, 0.0, 1.0)
+                        masks.append(F.interpolate(mask, size=(H,W), mode="bilinear")[0,0])
+                        scores.append(score)
+                        utmost_objects -= 1
+                    else:
+                        break
+                results.append({"image_name": image_name, "masks": masks, "scores": scores, "num": len(scores)})
             return results
 

@@ -17,15 +17,14 @@ from detectron2.evaluation import (
 from detectron2.data import build_detection_train_loader, build_detection_test_loader
 
 from configs.add_custom_config import add_custom_config
-from dataset import register_sor_dataset, sor_dataset_mapper
+from dataset import register_sor_dataset, sor_dataset_mapper_train, sor_dataset_mapper_test
 from evaluation import SOREvaluator
 from SRNet import SRNet
 
 class Trainer(DefaultTrainer):
     @classmethod
     def build_evaluator(cls, cfg, dataset_name):
-        return None
-        # return SOREvaluator(cfg, dataset_name)
+        return SOREvaluator(cfg, dataset_name)
 
     @classmethod
     def build_optimizer(cls, cfg, model):
@@ -109,11 +108,11 @@ class Trainer(DefaultTrainer):
 
     @classmethod
     def build_train_loader(cls, cfg):
-        return build_detection_train_loader(cfg, mapper = lambda x:sor_dataset_mapper(x, cfg=cfg))
+        return build_detection_train_loader(cfg, mapper = lambda x:sor_dataset_mapper_train(x, cfg=cfg))
     
     @classmethod
-    def build_test_loader(cls, cfg):
-        return build_detection_test_loader(cfg, mapper = lambda x:sor_dataset_mapper(x, cfg=cfg))
+    def build_test_loader(cls, cfg, dataset_name):
+        return build_detection_test_loader(cfg, dataset_name, mapper = lambda x:sor_dataset_mapper_test(x, cfg=cfg))
 
 def setup(args):
     """
