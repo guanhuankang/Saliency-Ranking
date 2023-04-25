@@ -1,0 +1,7 @@
+torch
+detectron2
+opencv-python
+albumentations
+pandas
+scipy
+timm

@@ -87,6 +87,7 @@ class IORTransformer(nn.Module):
         ks = torch.split(key, h_dim, dim=-1)
         vs = torch.split(value, h_dim, dim=-1)
         attns = [ (q@k.transpose(-1,-2))*qscale*ior for q,k,ior in zip(qs,ks,ior_emb) ] ## MCA
+        attns = [ torch.softmax(attn, dim=-1) for attn in attns ]
 
         x = torch.cat([ attn@v for attn,v in zip(attns,vs)], dim=-1)
         x = x + short_cut
