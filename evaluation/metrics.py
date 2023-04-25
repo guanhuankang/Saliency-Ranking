@@ -23,7 +23,7 @@ class Metrics:
         return merge
 
     def toNumpy(self, lst):
-        return [x if isinstance(x, type(np.random.rand(2))) else np.array(x.detach().cpu()) for x in lst]
+        return [x if isinstance(x, type(np.zeros((2,2)))) else np.array(x.detach().cpu()) for x in lst]
 
     def requireMatcher(self):
         require_matcher_metrics = ["ap", "ar", "sa_sor"]

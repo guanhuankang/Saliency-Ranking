@@ -1,6 +1,7 @@
 import copy
 import cv2
 import numpy as np
+import torch
 from PIL import Image
 import albumentations as A
 
@@ -53,15 +54,18 @@ def sor_dataset_mapper_train(dataset_dict, cfg):
     aug = transform(image = image, ior_mask=ior_mask, mask=mask)
     image, ior_mask, mask = aug["image"], aug["ior_mask"], aug["mask"]
 
+    ## toTensor
+    image = torch.from_numpy(image).permute(2,0,1).float()
+    ior_mask = torch.from_numpy(ior_mask).float()
+    mask = torch.from_numpy(mask).float()
+    score = 1.0 if target>0 else 0.0
+
     return {
         "image_name": dataset_dict["image_name"],
-        "image_id": dataset_dict["image_id"],
+        "image": image,
         "height": dataset_dict["height"],
         "width": dataset_dict["width"],
-        # "rank": target,
-        # "ranks": ranks,
-        "image": image,
         "ior_mask": ior_mask,
         "mask": mask,
-        "score": 1.0 if target>0 else 0.0
+        "score": score,
     }

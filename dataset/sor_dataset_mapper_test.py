@@ -3,6 +3,7 @@ import cv2
 import numpy as np
 from PIL import Image
 import albumentations as A
+import torch
 
 def read_image(file_name, format="RGB"):
     return np.array(Image.open(file_name).convert(format)).astype(np.uint8)
@@ -36,13 +37,18 @@ def sor_dataset_mapper_test(dataset_dict, cfg):
     aug = transform(image = image, ior_mask=ior_mask)
     image, ior_mask = aug["image"], aug["ior_mask"]
 
+    ## toTensor
+    image = torch.from_numpy(image).permute(2,0,1).float()
+    ior_mask = torch.from_numpy(ior_mask).float()
+    masks = [ torch.from_numpy(mask).float() for mask in masks]
+
     return {
         "image_name": dataset_dict["image_name"],
-        "image_id": dataset_dict["image_id"],
+        "image": image,
         "height": dataset_dict["height"],
         "width": dataset_dict["width"],
-        "image": image,
         "ior_mask": ior_mask,
+
         "masks": masks, ## GT for the purpose of evaluation,
-        "ranks": np.array(ranks)[order_of_ranks] ## for verification
+        "ranks": np.array(ranks)[order_of_ranks].tolist() ## for verification
     }

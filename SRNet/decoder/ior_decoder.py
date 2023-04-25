@@ -136,7 +136,7 @@ class IORHead(nn.Module):
         mem = self.input_proj(mem)
         pred_mask = self.mlp(query)@mem.transpose(-1,-2) ## B,1,L
         pred_mask = pred_mask.reshape(B_, 1, H, W)
-        score = self.cls(query).view(-1,1) ## B,1
+        score = self.cls(query).view(-1) ## B,1
         return pred_mask, score
 
 class IORDecoderBlock(nn.Module):
