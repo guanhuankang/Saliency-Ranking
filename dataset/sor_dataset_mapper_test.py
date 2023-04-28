@@ -30,7 +30,7 @@ def sor_dataset_mapper_test(dataset_dict, cfg):
 
     ## data aug: only resize is adopted for inference stage
     transform = A.Compose([
-            A.Resize(cfg.INPUT.FT_SIZE_TRAIN, cfg.INPUT.FT_SIZE_TRAIN)
+            A.Resize(cfg.INPUT.FT_SIZE_TEST, cfg.INPUT.FT_SIZE_TEST)
         ],
         additional_targets = {"ior_mask": "mask"}
     )
