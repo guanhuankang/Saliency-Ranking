@@ -1,201 +1,141 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+
 from detectron2.config import configurable
-
-from ..component import IORMaskEncoder
-from ..component import init_weights_
-
-class Mlp(nn.Module):
-    """Multilayer perceptron."""
-
-    def __init__(
-        self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0.0
-    ):
-        super().__init__()
-        out_features = out_features or in_features
-        hidden_features = hidden_features or in_features
-        self.fc1 = nn.Linear(in_features, hidden_features)
-        self.act = act_layer()
-        self.fc2 = nn.Linear(hidden_features, out_features)
-        self.drop = nn.Dropout(drop)
-        init_weights_(self)
-
-    def forward(self, x):
-        x = self.fc1(x)
-        x = self.act(x)
-        x = self.drop(x)
-        x = self.fc2(x)
-        x = self.drop(x)
-        return x
-
-class IORTransformer(nn.Module):
-    @configurable
-    def __init__(self, 
-            dim = 256,
-            ffn_dim = 512,
-            ffn_drop = 0.0
-        ):
-        ''' norm before = True '''
-        super().__init__()
-
-        self.q_w = nn.Linear(dim, dim)
-        self.kv_w = nn.Linear(dim, dim + dim)
-        self.ffn = Mlp(dim, ffn_dim, dim)
-        self.ffn_drop = nn.Dropout(p=ffn_drop)
-        self.input_proj = nn.Sequential(
-            nn.Linear(dim, dim),
-            nn.ReLU(),
-            nn.LayerNorm(dim)
-        )
-
-        self.norm_q = nn.LayerNorm(dim)
-        self.norm_ffn = nn.LayerNorm(dim)
-
-        init_weights_(self)
-        
-
-    @classmethod
-    def from_config(cls, cfg):
-        return {
-            "dim": cfg.MODEL.IOR_TRANSFORMER.DIM,
-            "ffn_dim": cfg.MODEL.IOR_TRANSFORMER.FFN_DIM,
-            "ffn_drop": cfg.MODEL.IOR_TRANSFORMER.FFN_DROP
-        }
-
-    def forward(self, query, mem, ior_emb):
-        '''
-        IORBlock decodes res5/4/3 once at a time.
-        @param:
-            query: R^{B,1,C} saliency query
-            mem: R^{B,L,C} L==H*W
-            ior_emb: R^{B,nh,H,W}
-        @return: query' \in R^{B,1,C}
-        '''
-        B_, L, C = mem.shape
-        B_, nh, H, W = ior_emb.shape
-        assert L == H * W, "{}!={}*{}".format(L, H, W)
-        
-        short_cut = query
-        h_dim = C//nh
-        qscale = h_dim**(-0.5)
-
-        ior_emb = ior_emb.flatten(2).split(1, dim=1) ## B,1,L \times nh
-        mem = self.input_proj(mem) ## proj & norm
-        key, value = self.kv_w(mem).split(C, dim=-1)
-        qs = self.q_w(self.norm_q(query)).split(h_dim, dim=-1)
-        ks = torch.split(key, h_dim, dim=-1)
-        vs = torch.split(value, h_dim, dim=-1)
-        attns = [ (q@k.transpose(-1,-2))*qscale*ior for q,k,ior in zip(qs,ks,ior_emb) ] ## MCA
-        attns = [ torch.softmax(attn, dim=-1) for attn in attns ]
-
-        x = torch.cat([ attn@v for attn,v in zip(attns,vs)], dim=-1)
-        x = x + short_cut
-        x = x + self.ffn_drop(self.ffn(self.norm_ffn(x)))
-        return x
-
-class IORHead(nn.Module):
-    @configurable
-    def __init__(self, dim=256, hidden_dim=512, out_dim=256):
-        super().__init__()
-        self.input_proj = nn.Sequential(
-            nn.Linear(dim, dim),
-            nn.ReLU(),
-            nn.LayerNorm(dim)
-        )
-        self.mlp = nn.Sequential(
-            nn.Linear(dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, out_dim)
-        )
-        self.cls = nn.Linear(dim, 1)
-        
-        init_weights_(self)
-    
-    @classmethod
-    def from_config(cls, cfg):
-        return {
-            "dim": cfg.MODEL.IORHEAD.DIM,
-            "hidden_dim": cfg.MODEL.IORHEAD.HIDDEN_DIM,
-            "out_dim": cfg.MODEL.IORHEAD.OUT_DIM
-        }
-
-    def forward(self, query, mem, H, W):
-        '''
-        prediction head
-        @param:
-            query: R^{B,1,C}
-            mem: R^{B,L,C}
-        @return:
-            pred_mask: B,1,H,W where H * W == L
-            score: confidence score \in R^B
-        '''
-        B_, L, C = mem.shape
-        assert L == H * W, "{}!={}*{}".format(L, H, W)
-        
-        mem = self.input_proj(mem)
-        pred_mask = self.mlp(query)@mem.transpose(-1,-2) ## B,1,L
-        pred_mask = pred_mask.reshape(B_, 1, H, W)
-        score = self.cls(query).view(-1) ## B,1
-        return pred_mask, score
+from ..component import CrossAttn, FFN, PointSampler, init_weights_
+from .ior_sample import IORSample
 
 class IORDecoderBlock(nn.Module):
-    def __init__(self, cfg):
+    @configurable
+    def __init__(self, embed_dim=256, num_heads=8, hidden_dim=1024, dropout_ca=0.0, dropout_ffn=0.0):
         super().__init__()
-        self.used_levels  = cfg.MODEL.IOR_DECODER_BLOCK.USED_LEVELS
-        self.ior_encoder = IORMaskEncoder(cfg)
-        self.ior_transformers = nn.ModuleDict((level,IORTransformer(cfg)) for level in self.used_levels)
-        self.ior_head = IORHead(cfg)
-        
-    def forward(self, query, ior_mask, x):
-        ''' decode query to the most salient instance
-            under IOR mechanism given ior_mask
-            @param:
-                query: R^{B,1,C} saliency query (refer to the most salient obj)
-                ior_mask: R^{B,1,H,W} inhibition of return mask
-                x: dict of features
-            @return:
-                query, salient instance (under inhibition mechanism)
-        '''
-        B_, C, H, W = ior_mask.shape
+        self.ca_1 = CrossAttn(embed_dim=embed_dim, num_heads=num_heads, dropout=dropout_ca)
+        self.sa_1 = CrossAttn(embed_dim=embed_dim, num_heads=num_heads, dropout=dropout_ca)
+        self.ffn_1 = FFN(embed_dim=embed_dim, hidden_dim=hidden_dim, dropout=dropout_ffn)
 
-        ior_dict = self.ior_encoder(ior_mask)
-        for level in self.used_levels:
-            query = self.ior_transformers[level](
-                query = query, 
-                mem = x[level].flatten(2).transpose(-1,-2),
-                ior_emb = ior_dict[level]
-            )
-        pixel_emb = F.interpolate(x[self.used_levels[-1]], size=(H,W), mode="bilinear", align_corners=False)
-        pixel_emb = pixel_emb.flatten(2).transpose(-1,-2)
-        pred_mask, score = self.ior_head(query, pixel_emb, H, W)
-        return query, pred_mask, score
+        self.ca_2 = CrossAttn(embed_dim=embed_dim, num_heads=num_heads, dropout=dropout_ca)
+        self.sa_2 = CrossAttn(embed_dim=embed_dim, num_heads=num_heads, dropout=dropout_ca)
+        self.ffn_2 = FFN(embed_dim=embed_dim, hidden_dim=hidden_dim, dropout=dropout_ffn)
+
+        self.ca_z = CrossAttn(embed_dim=embed_dim, num_heads=num_heads, dropout=dropout_ca)
+
+    @classmethod
+    def from_config(cls, cfg):
+        return {
+            "embed_dim": cfg.IOR_DECODER.EMBED_DIM,
+            "num_heads": cfg.IOR_DECODER.CROSSATTN.NUM_HEADS,
+            "dropout_ca": cfg.IOR_DECODER.CROSSATTN.DROPOUT,
+            "hidden_dim": cfg.IOR_DECODER.FFN.HIDDEN_DIM,
+            "dropout_ffn": cfg.IOR_DECODER.FFN.DROPOUT
+        }
+
+    def getMask(self, query, mq):
+        B, L, C = query.shape
+        m = torch.zeros((1, L, L), dtype=torch.float, device=query.device)
+        m[:,0:L-mq,L-mq] = -1e9
+        return m
+
+    def forward(self, query, query_ape, ior_points, ior_ape, z, z_ape, mask_queries=0):
+        mask = self.getMask(query, mask_queries)
+        query, _ = self.ca_1(tgt=query, mem=ior_points, mask=None, pe_tgt=query_ape, pe_mem=ior_ape)
+        query, _ = self.sa_1(tgt=query, mem=query, mask=mask, pe_tgt=query_ape, pe_mem=ior_ape)
+        query = self.ffn_1(query)
+
+        query, _ = self.ca_2(tgt=query, mem=z, mask=None, pe_tgt=query_ape, pe_mem=z_ape)
+        query, _ = self.sa_2(tgt=query, mem=query, mask=mask, pe_tgt=query_ape, pe_mem=ior_ape)
+        query = self.ffn_2(query)
+
+        z, _ = self.ca_z(tgt=z, mem=query, mask=None, pe_tgt=z_ape, pe_mem=query_ape)
+        return query, z
+
+
+class IORPixelDecoder(nn.Module):
+    @configurable
+    def __init__(self, embed_dim=256, hidden_dim=1024, dropout=0.0):
+        super().__init__()
+        self.mlp = FFN(embed_dim=embed_dim, hidden_dim=hidden_dim, dropout=dropout)
+        self.cls = nn.Linear(embed_dim, 1)
+        self.trans_conv1 = nn.ConvTranspose2d(embed_dim, embed_dim, kernel_size=3, padding=1, output_padding=1, stride=2, dilation=1)
+        self.trans_conv2 = nn.ConvTranspose2d(embed_dim, embed_dim, kernel_size=3, padding=1, output_padding=1, stride=2, dilation=1)
+
+    @classmethod
+    def from_config(cls, cfg):
+        return {
+            "embed_dim": cfg.IOR_DECODER.EMBED_DIM,
+            "hidden_dim": cfg.IOR_DECODER.FFN.HIDDEN_DIM,
+            "dropout": cfg.IOR_DECODER.FFN.DROPOUT
+        }
+
+    def forward(self, query, feat):
+        feat = self.trans_conv1(feat)
+        feat = self.trans_conv2(feat)
+        B, C, H, W = feat.shape
+        query = self.mlp(query)
+        score = self.cls(query)
+        mask = (query @ feat.flatten(2)).reshape(B, -1, H, W)
+        return {
+            "mask": mask,
+            "score": score
+        }
 
 class IORDecoder(nn.Module):
-    def __init__(self, cfg):
+    @configurable
+    def __init__(self,
+                 cfg,
+                 embed_dim=256,
+                 ape_size=(224,224),
+                 num_ior_points=256,
+                 num_tokens=256,
+                 num_queries=1,
+                 num_blocks=6
+                 ):
         super().__init__()
-        self.used_levels  = cfg.MODEL.IOR_DECODER_BLOCK.USED_LEVELS
-        num_blocks = cfg.MODEL.IOR_DECODER.NUM_BLOCKS
-        self.blocks = nn.ModuleList([IORDecoderBlock(cfg) for i in range(num_blocks)])
-    
-    def forward(self, x, ior_mask = None):
-        '''
-        @param:
-            x: dict likes {"res2":*, "res3": *,...}
-            ior_mask: R^{B,1,H,W}
-        @return:
-            resutls: list of dict with following fields:
-                mask: logit of predicted mask
-                score: saliency score (logit)
-                stage: 1/2/... (stage No.)
-        '''
-        if ior_mask==None:
-            ior_mask = torch.zeros_like(x[self.used_levels[-1]])
-        collect_results = lambda p,s,t=-1: {"mask": p, "score": s, "stage": t}
-        results = []
-        query = torch.mean(x[self.used_levels[0]], dim=[-1,-2], keepdim=False).unsqueeze(1) ## B,1,C
-        for i,block in enumerate(self.blocks):
-            query, pred_mask, score = block(query, ior_mask, x)
-            results.append(collect_results(pred_mask, score,i+1))
-        return results
 
+        self.ape = nn.Parameter(torch.zeros((1, embed_dim, ape_size[0], ape_size[1])))
+        self.queries = nn.Parameter(torch.empty(1, self.num_queries, embed_dim))
+        init_weights_(self.ape)
+        init_weights_(self.queries)
+
+        self.ior_sample = IORSample(num_points=num_ior_points, embed_dim=embed_dim)
+        self.blocks = nn.ModuleList([IORDecoderBlock(cfg) for _ in range(num_blocks)])
+        self.points_sampler = PointSampler()
+        self.pixel_decoder = IORPixelDecoder(cfg)
+
+        self.num_queries = num_queries
+        self.num_tokens = num_tokens
+
+    @classmethod
+    def from_config(cls, cfg):
+        return {
+            "cfg": cfg,
+            "embed_dim": cfg.IOR_DECODER.EMBED_DIM,
+            "ape_size": (cfg.IOR_DECODER.APE.HEIGHT, cfg.IOR_DECODER.APE.WIDTH),
+            "num_ior_points": cfg.IOR_DECODER.NUM_IOR_POINTS,
+            "num_tokens": cfg.IOR_DECODER.NUM_TOKENS,
+            "num_queries": cfg.IOR_DECODER.NUM_QUERIES,
+            "num_blocks": cfg.IOR_DECODER.NUM_BLOCKS
+        }
+
+    def forward(self, feat, IOR_masks, IOR_ranks=None):
+        B, C, H, W = feat.shape
+        ape = F.interpolate(self.ape, size=(H,W), mode="bicubic") ## 1, C, H, W
+
+        ior_points, ior_indices = self.ior_sample(feat, IOR_masks, IOR_ranks) ## B, #, C | (B~,H~,W~)
+        ior_ape = torch.repeat_interleave(ape, B, dim=0)[ior_indices[0],:,ior_indices[1],ior_indices[2]].reshape(ior_points.shape)
+
+        tokens, t_indices = self.points_sampler.samplePointsRegularly2D(feat, self.num_tokens, indices=True) ## B, #, C | (H~,W~)
+        tokens_ape = ape[:, :, t_indices[0], t_indices[1]].reshape(tokens.shape) ## B, #, C
+
+        query = torch.cat([tokens, self.queries], dim=1)
+        query_ape = torch.cat([tokens_ape, torch.zeros_like(self.queries)], dim=1)
+
+        z = feat.flatten(2).permute(0, 2, 1) ## B, L, C
+        z_ape = ape
+        for block in self.blocks:
+            query, z = block(query, query_ape, ior_points, ior_ape, z, z_ape, mask_queries=self.num_queries)
+        feat = z.reshape(B, C, H, W)
+
+        results = self.pixel_decoder(query[:, self.num_tokens::, :], feat)
+        return results

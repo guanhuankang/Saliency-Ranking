@@ -6,8 +6,6 @@ MODEL:
         NAME: "D2SwinTransformer"
         NUM_FEATURES: (128,256,512,1024)
         FEATURE_KEYS: ["res2", "res3", "res4", "res5"]
-    NECK:
-        DIM: 256
     SWIN:
         EMBED_DIM: 128
         DEPTHS: [2, 2, 18, 2]
@@ -18,24 +16,24 @@ MODEL:
         PATCH_NORM: True
         PRETRAIN_IMG_SIZE: 384
         OUT_FEATURES: ["res2", "res3", "res4", "res5"]
-    WEIGHTS: "pretrained/swin_base_patch4_window12_384_22k.pth"
-    IOR_MASK_ENCODER:
-        HIDDEN_DIM: 32
-        NUM_HEAD: 8
-        FEATURE_KEYS: ["res2", "res3", "res4", "res5"]
-    IOR_TRANSFORMER:
+    NECK:
         DIM: 256
-        FFN_DIM: 512
-        FFN_DROP: 0.0
-    IORHEAD:
-        DIM: 256
-        HIDDEN_DIM: 512
-        OUT_DIM: 256
-    IOR_DECODER_BLOCK:
-        USED_LEVELS: ["res5", "res4", "res3"]
     IOR_DECODER:
-        NUM_BLOCKS: 2
-        LOSS_WEIGHTS: (0.4, 1.0)
+        EMBED_DIM: 256
+        NUM_IOR_POINTS: 256
+        NUM_TOKENS: 256
+        NUM_QUERIES: 256
+        NUM_BLOCKS: 6
+        CROSSATTN:
+            NUM_HEADS: 8
+            DROPOUT: 0.0
+        FFN:
+            HIDDEN_DIM: 1024
+            DROPOUT: 0.0
+        APE:
+            HEIGHT: 32
+            WIDTH: 32
+    WEIGHTS: "pretrained/swin_base_patch4_window12_384_22k.pth"
 DATASETS:
     TRAIN: ("assr_train",)
     TEST: ("assr_val",)
