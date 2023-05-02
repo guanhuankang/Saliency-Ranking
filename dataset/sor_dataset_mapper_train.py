@@ -30,8 +30,9 @@ def sampleRankExp(ranks):
     return target
 
 def sampleRankUni(ranks):
-    ables = [r for r in ranks if r > 0] + [0]
-    return ables[np.random.randint(0, len(ables))] if len(ables) > 0 else 0
+    return max(ranks)
+    # ables = [r for r in ranks if r > 0] + [0]
+    # return ables[np.random.randint(0, len(ables))] if len(ables) > 0 else 0
 
 def sor_dataset_mapper_train(dataset_dict, cfg):
     dataset_dict = copy.deepcopy(dataset_dict)

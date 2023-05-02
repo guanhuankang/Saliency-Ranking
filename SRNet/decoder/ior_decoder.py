@@ -86,7 +86,7 @@ class IORDecoder(nn.Module):
     def __init__(self,
                  cfg,
                  embed_dim=256,
-                 ape_size=(224,224),
+                 ape_size=(64, 64),
                  num_ior_points=256,
                  num_tokens=256,
                  num_queries=1,
