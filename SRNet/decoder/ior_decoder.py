@@ -6,6 +6,7 @@ import torch.nn.functional as F
 from detectron2.config import configurable
 from ..component import CrossAttn, FFN, PointSampler, init_weights_
 from .ior_sample import IORSample
+from .sam import TwoWayTransformer
 
 class IORDecoderBlock(nn.Module):
     @configurable
@@ -86,6 +87,8 @@ class IORDecoder(nn.Module):
     def __init__(self,
                  cfg,
                  embed_dim=256,
+                 num_heads=8,
+                 hidden_dim=1024,
                  ape_size=(64, 64),
                  num_ior_points=256,
                  num_tokens=256,
@@ -100,7 +103,8 @@ class IORDecoder(nn.Module):
         nn.init.xavier_normal_(self.queries)
 
         self.ior_sample = IORSample(num_points=num_ior_points, embed_dim=embed_dim)
-        self.blocks = nn.ModuleList([IORDecoderBlock(cfg) for _ in range(num_blocks)])
+        # self.blocks = nn.ModuleList([IORDecoderBlock(cfg) for _ in range(num_blocks)])
+        self.transformers = TwoWayTransformer(depth=num_blocks, embedding_dim=embed_dim, num_heads=num_heads, mlp_dim=hidden_dim)
         self.points_sampler = PointSampler()
         self.pixel_decoder = IORPixelDecoder(cfg)
 
@@ -112,6 +116,8 @@ class IORDecoder(nn.Module):
         return {
             "cfg": cfg,
             "embed_dim": cfg.MODEL.IOR_DECODER.EMBED_DIM,
+            "num_heads": cfg.MODEL.IOR_DECODER.CROSSATTN.NUM_HEADS,
+            "hidden_dim": cfg.MODEL.IOR_DECODER.FFN.HIDDEN_DIM,
             "ape_size": (cfg.MODEL.IOR_DECODER.APE.HEIGHT, cfg.MODEL.IOR_DECODER.APE.WIDTH),
             "num_ior_points": cfg.MODEL.IOR_DECODER.NUM_IOR_POINTS,
             "num_tokens": cfg.MODEL.IOR_DECODER.NUM_TOKENS,
@@ -122,23 +128,18 @@ class IORDecoder(nn.Module):
     def forward(self, feat, IOR_masks, IOR_ranks=None):
         B, C, H, W = feat.shape
         ape = F.interpolate(self.ape, size=(H,W), mode="bicubic") ## 1, C, H, W
+        ape = torch.repeat_interleave(ape, B, dim=0) ## B, C, H, W
 
         ior_points, ior_indices = self.ior_sample(feat, IOR_masks, IOR_ranks) ## B, #, C | (B~,H~,W~)
-        ior_ape = torch.repeat_interleave(ape, B, dim=0)[ior_indices[0], :, ior_indices[1], ior_indices[2]].reshape(ior_points.shape)
-
-        tokens, t_indices = self.points_sampler.samplePointsRegularly2D(feat, self.num_tokens, indices=True) ## B, #, C | (H~,W~)
-        tokens_ape = torch.repeat_interleave(ape, B, dim=0)[:, :, t_indices[0], t_indices[1]].transpose(-1, -2)
+        ior_ape = ape[ior_indices[0], :, ior_indices[1], ior_indices[2]].reshape(ior_points.shape)
 
         latent_queries = torch.repeat_interleave(self.queries, B, dim=0)
-        query = torch.cat([tokens, latent_queries], dim=1)
-        query_ape = torch.cat([tokens_ape, torch.zeros_like(latent_queries)], dim=1)
+        query = torch.cat([ior_points, latent_queries], dim=1)
+        query_ape = torch.cat([ior_ape, torch.zeros_like(latent_queries)], dim=1)
 
-        z = feat.flatten(2).permute(0, 2, 1) ## B, L, C
-        z_ape = torch.repeat_interleave(ape, B, dim=0).flatten(2).permute(0, 2, 1) ## B, L, C
-
-        for block in self.blocks:
-            query, z = block(query, query_ape, ior_points, ior_ape, z, z_ape, mask_queries=self.num_queries)
-        feat = z.reshape(B, C, H, W)
-
-        results = self.pixel_decoder(query[:, self.num_tokens::, :], feat)
+        query, z = self.transformers(feat, ape, query + query_ape)
+        feat = z.transpose(-1,-2).reshape(B, C, H, W)
+        latent_queries = query[:,self.num_tokens::,:]
+        
+        results = self.pixel_decoder(latent_queries, feat)
         return results
