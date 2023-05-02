@@ -20,15 +20,15 @@ class PointSampler(nn.Module):
 
         count = mask.sum(dim=1).int().cpu().detach().numpy().reshape(-1)
         cumsum = np.append(0, np.cumsum(count)[0:-1])
-        assert count.min() > 0, "mask can not be empty"
+        assert count.min() > 0, f"mask can not be empty: {count}"
 
         perm_ = torch.cat([
             torch.randperm(c, device=x.device).repeat(int(np.ceil(k / c)))[0:k] + cu
             for c, cu in zip(count, cumsum)
         ]).long()
 
-        indices = torch.where(mask)
-        sample_indices = tuple(idx[perm_] for idx in indices)
+        idx_tup = torch.where(mask)
+        sample_indices = tuple(idx[perm_] for idx in idx_tup)
         samples = x[sample_indices]
         samples = samples.reshape(B, k, C)
         if indices:

@@ -6,6 +6,7 @@ from detectron2.modeling import META_ARCH_REGISTRY, build_backbone
 from .decoder import IORDecoder
 
 def calc_mask_loss(pred, target):
+    pred = F.interpolate(pred, size=target.shape[2::], mode="bilinear")
     sig_pred = torch.sigmoid(pred)
     bce_loss = F.binary_cross_entropy_with_logits(pred, target)
     dice_loss = 1.0 - 2.0 * (sig_pred * target).mean(dim=[1, 2, 3]) / ((sig_pred + target).mean(dim=[1, 2, 3]) + 1e-6)
@@ -21,6 +22,7 @@ class SRNet(nn.Module):
         super().__init__()
         self.cfg = cfg
         self.backbone = build_backbone(cfg)
+        self.conv_1x1 = nn.Conv2d(1024, cfg.MODEL.IOR_DECODER.EMBED_DIM, 1)
         self.decoder = IORDecoder(cfg)
 
         self.register_buffer("pixel_mean", torch.tensor(cfg.MODEL.PIXEL_MEAN).reshape(1, -1, 1, 1), False)
@@ -31,13 +33,18 @@ class SRNet(nn.Module):
         return self.pixel_mean.device
 
     def forward(self, batch_dict, *args, **argw):
+        import pickle
+        with open("output/tmp.pk","wb") as f:
+            pickle.dump(batch_dict, f)
+
         images = torch.stack([s["image"] for s in batch_dict], dim=0).to(self.device).contiguous()
         images = (images - self.pixel_mean) / self.pixel_std
-        feat = self.backbone(images)["res5"]
+        feat = self.conv_1x1(self.backbone(images)["res5"])
 
         if self.training:
             ior_masks = [x["ior_masks"] for x in batch_dict]
             ior_ranks = [x["ior_ranks"] for x in batch_dict]
+
             target = torch.stack([x["target"] for x in batch_dict], dim=0).unsqueeze(1).to(self.device)
             tgt_score = torch.tensor([x["target_rank"] for x in batch_dict]).gt(0).float().to(self.device)
             results = self.decoder(feat, ior_masks, ior_ranks)

@@ -30,7 +30,7 @@ class Metrics:
         return len([1.0 for m in require_matcher_metrics if m in self.metrics_of_interest]) > 0
 
     def process(self, preds, gts, thres=.5):
-        if len(gts) <= 0: 
+        if len(gts) <= 0:
             print("warning GT has empty instances", flush=True)
             return {}
         if len(preds) <= 0:

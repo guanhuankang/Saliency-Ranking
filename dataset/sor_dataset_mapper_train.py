@@ -63,7 +63,7 @@ def sor_dataset_mapper_train(dataset_dict, cfg):
     masks = [torch.from_numpy(m).float() for m in masks]
 
     ## selection
-    target = torch.zeros((H, W))
+    target = torch.zeros(image.shape[-2::])
     target_rank = sampleRankUni(cates)
     ior_masks = []
     ior_ranks = []
