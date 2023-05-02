@@ -70,6 +70,7 @@ INPUT:
     MAX_SIZE_TEST: 1333
     FORMAT: "RGB"
 OUTPUT_DIR: "output/"
+OUTPUT_DEBUG: "output/debug/"
 TEST:
     EVAL_PERIOD: 5000
     UTMOST_OBJECTS: 12

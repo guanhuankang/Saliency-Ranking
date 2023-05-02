@@ -59,3 +59,5 @@ def add_custom_config(cfg):
 
     cfg.INPUT.FT_SIZE_TRAIN = 800
     cfg.INPUT.FT_SIZE_TEST = 800
+
+    cfg.OUTPUT_DEBUG = "output/debug/"
