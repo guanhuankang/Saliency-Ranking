@@ -29,11 +29,11 @@ MODEL:
             DROPOUT: 0.0
         FFN:
             HIDDEN_DIM: 1024
-            DROPOUT: 0.0
+            DROPOUT: 0.1
         APE:
             HEIGHT: 32
             WIDTH: 32
-    WEIGHTS: "../swin_base_patch4_window12_384_22k.pth"
+    WEIGHTS: "pretrained/swin_base_patch4_window12_384_22k.pth"
 DATASETS:
     TRAIN: ("assr_train",)
     TEST: ("assr_val",)
@@ -44,7 +44,7 @@ SOLVER:
     AMP:
         ENABLED: true
     BACKBONE_MULTIPLIER: 0.1
-    BASE_LR: 0.0001
+    BASE_LR: 0.00001
     CHECKPOINT_PERIOD: 5000
     CLIP_GRADIENTS:
         CLIP_TYPE: full_model
@@ -63,16 +63,16 @@ SOLVER:
     WARMUP_ITERS: 10
     WARMUP_METHOD: linear
 INPUT:
-    FT_SIZE_TRAIN: 800
-    FT_SIZE_TEST: 800
+    FT_SIZE_TRAIN: 1024
+    FT_SIZE_TEST: 1024
     MIN_SIZE_TRAIN: (480,640)
     MIN_SIZE_TEST: 640
     MAX_SIZE_TEST: 1333
     FORMAT: "RGB"
-OUTPUT_DIR: "output/checkpoints/"
+OUTPUT_DIR: "output/"
 TEST:
     EVAL_PERIOD: 5000
-    UTMOST_OBJECTS: 20
+    UTMOST_OBJECTS: 12
     METRICS_OF_INTEREST: ["mae", "acc", "fbeta", "iou", "sa_sor", "sor", "ap", "ar"]
     THRESHOLD: 0.5
     EXPECTED_RESULTS: []
