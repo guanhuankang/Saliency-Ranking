@@ -1,6 +1,6 @@
 import os
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw
 
 import torch
 import torch.nn as nn
@@ -32,13 +32,15 @@ class SRNet(nn.Module):
         self.register_buffer("pixel_mean", torch.tensor(cfg.MODEL.PIXEL_MEAN).reshape(1, -1, 1, 1), False)
         self.register_buffer("pixel_std", torch.tensor(cfg.MODEL.PIXEL_STD).reshape(1, 3, 1, 1), False)
 
-    def debugDump(self, image_name, pred_mask, target):
+    def debugDump(self, image_name, pred_mask, target, score):
         pred = (torch.sigmoid(
             F.interpolate(pred_mask.detach().float().cpu().unsqueeze(0).unsqueeze(1), size=target.shape, mode="bilinear")
         ).numpy() * 255).astype(np.uint8)[0,0]
         target = (target.detach().cpu().numpy() * 255).astype(np.uint8)
         os.makedirs(self.cfg.OUTPUT_DEBUG, exist_ok=True)
-        Image.fromarray(np.concatenate([pred, target], axis=1)).save(os.path.join(self.cfg.OUTPUT_DEBUG, image_name+".png"))
+        out = Image.fromarray(np.concatenate([pred, target], axis=1))
+        ImageDraw.Draw(out).text((0, 0), f"score:{torch.sigmoid(score.float())}", fill="red")
+        out.save(os.path.join(self.cfg.OUTPUT_DEBUG, image_name+".png"))
 
     @property
     def device(self):
@@ -62,7 +64,7 @@ class SRNet(nn.Module):
             mask_loss = calc_mask_loss(masks, target)
             cls_loss = calc_cls_loss(scores.view(-1), tgt_score.view(-1))
 
-            self.debugDump("latest", masks[0, 0], target[0, 0])
+            self.debugDump("latest", masks[0, 0], target[0, 0], scores.view(-1)[0].cpu())
 
             return {
                 "mask_loss": mask_loss,
