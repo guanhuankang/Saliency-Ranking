@@ -46,7 +46,7 @@ class IORSample(nn.Module):
     def forward(self, feat, IOR_masks, IOR_ranks=None):
         points = []
         indices = []
-        for i in range(len(IOR_masks)):
+        for i in range(len(feat)):
             if len(IOR_masks[i]) > 0:
                 ps, idx = self.sample(feat[i:i+1], IOR_masks[i])
             else:

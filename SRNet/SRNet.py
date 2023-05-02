@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from detectron2.modeling import META_ARCH_REGISTRY, build_backbone
-from .decoder import IORDecoder
+from .decoder import IORDecoder, Neck
 
 def calc_mask_loss(pred, target):
     pred = F.interpolate(pred, size=target.shape[2::], mode="bilinear")
@@ -22,7 +22,7 @@ class SRNet(nn.Module):
         super().__init__()
         self.cfg = cfg
         self.backbone = build_backbone(cfg)
-        self.conv_1x1 = nn.Conv2d(1024, cfg.MODEL.IOR_DECODER.EMBED_DIM, 1)
+        self.neck = Neck(cfg)
         self.decoder = IORDecoder(cfg)
 
         self.register_buffer("pixel_mean", torch.tensor(cfg.MODEL.PIXEL_MEAN).reshape(1, -1, 1, 1), False)
@@ -33,13 +33,10 @@ class SRNet(nn.Module):
         return self.pixel_mean.device
 
     def forward(self, batch_dict, *args, **argw):
-        import pickle
-        with open("output/tmp.pk","wb") as f:
-            pickle.dump(batch_dict, f)
-
         images = torch.stack([s["image"] for s in batch_dict], dim=0).to(self.device).contiguous()
         images = (images - self.pixel_mean) / self.pixel_std
-        feat = self.conv_1x1(self.backbone(images)["res5"])
+        feat = self.neck(self.backbone(images))
+        torch.cuda.empty_cache()
 
         if self.training:
             ior_masks = [x["ior_masks"] for x in batch_dict]
@@ -71,14 +68,14 @@ class SRNet(nn.Module):
                 masks = []
                 scores = []
                 while utmost_objects > 0:
-                    ret = self.decoder(feat[b_i:b_i+1], ior_masks, ior_ranks)
+                    ret = self.decoder(feat[b_i:b_i+1], [ior_masks], [ior_ranks])
                     mask, score = ret["mask"], ret["score"].view(-1)
 
                     if score > 0.5:
                         ior_mask = torch.clamp(mask[0, 0], 0.0, 1.0)
                         ior_ranks.append(ior_mask)
-                        masks.append(F.interpolate(mask, size=(H, W), mode="bilinear")[0, 0])
-                        scores.append(score)
+                        masks.append(torch.sigmoid(F.interpolate(mask, size=(H, W), mode="bilinear")[0, 0]).detach().cpu())
+                        scores.append(torch.sigmoid(score.detach().cpu()))
                         utmost_objects -= 1
                     else:
                         break

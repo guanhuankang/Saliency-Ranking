@@ -41,6 +41,10 @@ def sor_dataset_mapper_test(dataset_dict, cfg):
         if cate > 0:
             cates.append(cate)
             masks.append(parse_anno(anno, H, W))
+    gts = [(r, m) for r, m in zip(cates, masks)]
+    gts.sort(key=lambda x: x[0], reverse=True)
+    masks = [x[1] for x in gts]
+    cates = [x[0] for x in gts]
 
     ## data aug
     transform = A.Compose([
@@ -48,12 +52,9 @@ def sor_dataset_mapper_test(dataset_dict, cfg):
         A.Resize(cfg.INPUT.FT_SIZE_TEST, cfg.INPUT.FT_SIZE_TEST)
         # A.LongestMaxSize(max_size=cfg.INPUT.FT_SIZE_TEST),
         # A.PadIfNeeded(min_height=cfg.INPUT.FT_SIZE_TEST, min_width=cfg.INPUT.FT_SIZE_TEST)
-    ],
-        additional_targets=dict(("mask_{}".format(i), "mask") for i in range(len(masks)))
-    )
-    aug = transform(image=image, **dict(("mask_{}".format(i), masks[i]) for i in range(len(masks))))
+    ])
+    aug = transform(image=image)
     image = aug["image"]
-    masks = [aug["mask_{}".format(i)] for i in range(len(masks))]
 
     ## toTensor
     image = torch.from_numpy(image).permute(2, 0, 1).float()
