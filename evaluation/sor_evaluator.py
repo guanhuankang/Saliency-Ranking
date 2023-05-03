@@ -1,3 +1,7 @@
+import numpy as np
+from PIL import Image
+import os
+
 from detectron2.evaluation import DatasetEvaluator
 from .metrics import Metrics
 
@@ -21,8 +25,22 @@ class SOREvaluator(DatasetEvaluator):
             gt_ranks = [(r, m) for r,m in zip(inp["ranks"], inp["masks"])]
             gt_ranks.sort(key=lambda x: x[0], reverse=True)
             gts = [x[1] for x in gt_ranks]
+            image_name = inp["image_name"]
+            
+            ## EVAL
             self.results.append(self.metrics.process(preds=out["masks"], gts=gts, thres=thres))
-            self.image_names.append(inp["image_name"])
-
+            self.image_names.append(image_name)
+            
+            ## SAVE
+            if self.cfg.EVAL_SAVE:
+                out_path = os.path.join(self.cfg.OUTPUT_EVAL, self.dataset_name)
+                os.makedirs(out_path, exist_ok=True)
+                preds = [x.cpu().detach().numpy() for x in out["masks"]]
+                n = len(preds)
+                for i in range(n):
+                    Image.fromarray((preds[i]*255).astype(np.uint8)).save(
+                        os.path.join(out_path, f"{image_name}_{n-i}.png")
+                    )
+    
     def evaluate(self):
         return self.metrics.aggregate(self.results)

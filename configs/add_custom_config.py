@@ -61,3 +61,5 @@ def add_custom_config(cfg):
     cfg.INPUT.FT_SIZE_TEST = 800
 
     cfg.OUTPUT_DEBUG = "output/debug/"
+    cfg.OUTPUT_EVAL = "output/eval"
+    cfg.EVAL_SAVE = False

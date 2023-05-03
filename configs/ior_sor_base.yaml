@@ -71,6 +71,8 @@ INPUT:
     FORMAT: "RGB"
 OUTPUT_DIR: "output/"
 OUTPUT_DEBUG: "output/debug/"
+OUTPUT_EVAL: "output/eval"
+EVAL_SAVE: false
 TEST:
     EVAL_PERIOD: 5000
     UTMOST_OBJECTS: 12
