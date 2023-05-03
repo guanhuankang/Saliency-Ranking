@@ -22,7 +22,7 @@ MODEL:
         EMBED_DIM: 256
         NUM_IOR_POINTS: 256
         NUM_TOKENS: 256
-        NUM_QUERIES: 1
+        NUM_QUERIES: 20
         NUM_BLOCKS: 6
         CROSSATTN:
             NUM_HEADS: 8
