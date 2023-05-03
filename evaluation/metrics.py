@@ -3,7 +3,7 @@ import scipy.stats as stats
 import copy
 
 class Metrics:
-    def __init__(self, metrics_of_interest = ["mae", "acc", "fbeta", "iou", "sa_sor", "sor", "ap", "ar"]):
+    def __init__(self, metrics_of_interest = ["mae", "acc", "fbeta", "iou", "sa_sor", "sor", "ap", "ar", "top1"]):
         self.registerMetrics(metrics_of_interest)
     
     def registerMetrics(self, metrics_of_interest):
@@ -204,6 +204,11 @@ class Metrics:
             pred_ranks.append(t["pred_rank"] if t["iou"]>thres else 0)
             gt_ranks.append(t["gt_rank"])
         return np.corrcoef(pred_ranks, gt_ranks)[0, 1]
+
+    def top1(self, preds, gts, thres=.5, **argw):
+        if len(gts) > 0 and len(preds) > 0:
+            return self.iou(pred=preds[0], gt=gts[0], thres=thres)
+        return 0.0
 
 if __name__=="__main__":
     import os, tqdm

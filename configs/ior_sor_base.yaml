@@ -76,7 +76,7 @@ EVAL_SAVE: false
 TEST:
     EVAL_PERIOD: 5000
     UTMOST_OBJECTS: 12
-    METRICS_OF_INTEREST: ["mae", "acc", "fbeta", "iou", "sa_sor", "sor", "ap", "ar"]
+    METRICS_OF_INTEREST: ["mae", "acc", "fbeta", "iou", "sa_sor", "sor", "ap", "ar", "top1"]
     THRESHOLD: 0.5
     EXPECTED_RESULTS: []
     PRECISE_BN:
