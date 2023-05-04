@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from detectron2.config import configurable
-from ..component import init_weights_
+from ..component import init_weights_, LayerNorm2D
 
 
 class Neck(nn.Module):
@@ -14,7 +14,8 @@ class Neck(nn.Module):
         self.conv2 = nn.Conv2d(D["res4"], dim, 1)
         self.conv3 = nn.Sequential(
             nn.Conv2d(dim+dim, dim, 3, padding=1),
-            nn.ReLU()
+            nn.ReLU(),
+            LayerNorm2D(dim)
         )
         init_weights_(self)
 
