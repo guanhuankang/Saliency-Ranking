@@ -72,7 +72,7 @@ class SRDetr(nn.Module):
                     size = (64, 64)
                 )
                 self.debugDump(
-                    image_name="queries",
+                    image_name="queries2",
                     text = f"score: {torch.sigmoid(ior_scores[0, nq//2::].float().cpu().detach()).tolist()}",
                     lst = tuple(torch.sigmoid(pred_masks[0, nq//2::])),
                     size = (64, 64)
