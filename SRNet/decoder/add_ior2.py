@@ -59,7 +59,7 @@ class AddIOR(nn.Module):
             "dropout_attn": cfg.MODEL.IOR_DECODER.CROSSATTN.DROPOUT,
             "hidden_dim": cfg.MODEL.IOR_DECODER.FFN.HIDDEN_DIM,
             "dropout_ffn": cfg.MODEL.IOR_DECODER.FFN.DROPOUT,
-            "num_blocks": cfg.MODEL.IOR_DECODER.IOR_ENCODER.ADDIOR.NUM_BLOCKS
+            "num_blocks": cfg.MODEL.IOR_DECODER.ADDIOR.NUM_BLOCKS
         }
 
     def forward(self, token, query, token_pos, query_pos):
