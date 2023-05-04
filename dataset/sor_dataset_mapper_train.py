@@ -29,21 +29,21 @@ def sampleRankExp(ranks):
     target = 0 if target > num_level else target  ## if target>num_level means we mask all sal objs
     return target
 
-def sampleRankUni(ranks):
-    ables = [r for r in ranks if r > 0] + [0]
-    return ables[np.random.randint(0, len(ables))] if len(ables) > 0 else 0
-
 def sor_dataset_mapper_train(dataset_dict, cfg):
     dataset_dict = copy.deepcopy(dataset_dict)
     image = read_image(dataset_dict["file_name"], format="RGB")
     H, W = dataset_dict["height"], dataset_dict["width"]
-    cates = []
+    ranks = []
     masks = []
     for anno in dataset_dict["annotations"]:
         cate = anno["category_id"]
         if cate > 0:
-            cates.append(cate)
+            ranks.append(cate)
             masks.append(parse_anno(anno, H, W))
+    gts = list((r, m) for r, m in zip(ranks, masks))
+    gts.sort(key=lambda x: x[0], reverse=True)
+    ranks = [x[0] for x in gts]
+    masks = [x[1] for x in gts]
 
     ## data aug
     transform = A.Compose([
@@ -59,28 +59,14 @@ def sor_dataset_mapper_train(dataset_dict, cfg):
     masks = [aug["mask_{}".format(i)] for i in range(len(masks))]
 
     ## toTensor
-    image = torch.from_numpy(image).permute(2, 0, 1).float()
-    masks = [torch.from_numpy(m).float() for m in masks]
-
-    ## selection
-    target = torch.zeros(image.shape[-2::])
-    target_rank = sampleRankUni(cates)
-    ior_masks = []
-    ior_ranks = []
-    for r, m in zip(cates, masks):
-        if r > target_rank:
-            ior_masks.append(m)
-            ior_ranks.append(r)
-        elif r == target_rank and r > 0:
-            target = m.clone()
+    image = torch.from_numpy(image).permute(2, 0, 1).float()  ## C, s, s
+    masks = torch.stack([torch.from_numpy(m).float() for m in masks], dim=0)  ## N, s, s
 
     return {
         "image_name": dataset_dict["image_name"],
         "image": image,
         "height": H,
         "width": W,
-        "target": target,
-        "target_rank": target_rank,
-        "ior_masks": ior_masks,
-        "ior_ranks": ior_ranks
+        "masks": masks,
+        "ranks": ranks
     }

@@ -4,9 +4,9 @@ import torch.nn.functional as F
 
 
 from detectron2.config import configurable
-from ..component import CrossAttn, FFN, PointSampler, init_weights_
+from ..component import CrossAttn, FFN, PointSampler
 from .ior_sample import IORSample
-from .sam import TwoWayTransformer
+from ..component.sam import TwoWayTransformer
 
 class IORDecoderBlock(nn.Module):
     @configurable

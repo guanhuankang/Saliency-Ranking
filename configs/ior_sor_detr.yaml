@@ -1,5 +1,5 @@
 MODEL:
-    META_ARCHITECTURE: "SRNet"
+    META_ARCHITECTURE: "SRDetr"
     PIXEL_MEAN: [123.675, 116.280, 103.530]
     PIXEL_STD: [58.395, 57.120, 57.375]
     BACKBONE:
@@ -21,18 +21,16 @@ MODEL:
     IOR_DECODER:
         EMBED_DIM: 256
         NUM_IOR_POINTS: 256
-        NUM_TOKENS: 256
         NUM_QUERIES: 20
-        NUM_BLOCKS: 6
+        NUM_BLOCKS: 4
+        NUM_TOKENS: 20
+        NUM_LAYERS: 2
         CROSSATTN:
             NUM_HEADS: 8
             DROPOUT: 0.0
         FFN:
             HIDDEN_DIM: 1024
             DROPOUT: 0.1
-        APE:
-            HEIGHT: 32
-            WIDTH: 32
     WEIGHTS: "pretrained/swin_base_patch4_window12_384_22k.pth"
 DATASETS:
     TRAIN: ("assr_train",)

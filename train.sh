@@ -1,1 +1,1 @@
-python train_net.py --config-file configs/ior_sor_base.yaml --num-gpus 1 SOLVER.IMS_PER_BATCH 2
+python train_net.py --config-file configs/ior_sor_detr.yaml --num-gpus 1 DATASETS.ROOT D:\SaliencyRanking\dataset\coco_sor SOLVER.IMS_PER_BATCH 2 INPUT.FT_SIZE_TRAIN 224 INPUT.FT_SIZE_TEST 224 TEST.EVAL_PERIOD 50

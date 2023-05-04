@@ -22,13 +22,10 @@ class SOREvaluator(DatasetEvaluator):
     def process(self, inputs, outputs):
         thres = self.cfg.TEST.THRESHOLD
         for inp, out in zip(inputs, outputs):
-            gt_ranks = [(r, m) for r,m in zip(inp["ranks"], inp["masks"])]
-            gt_ranks.sort(key=lambda x: x[0], reverse=True)
-            gts = [x[1] for x in gt_ranks]
             image_name = inp["image_name"]
             
             ## EVAL
-            self.results.append(self.metrics.process(preds=out["masks"], gts=gts, thres=thres))
+            self.results.append(self.metrics.process(preds=out["masks"], gts=tuple(inp["masks"]), thres=thres))
             self.image_names.append(image_name)
             
             ## SAVE
