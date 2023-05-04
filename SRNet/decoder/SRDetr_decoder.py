@@ -8,7 +8,7 @@ from . import InstanceSegTransformer, mask2points, IOREncoder, AddIOR, MaskDecod
 class SRDetrDecoder(nn.Module):
     def __init__(self, cfg):
         super().__init__()
-        self.num_points = cfg.MODEL.IOR_DECODER.NUM_IOR_POINTS
+        self.num_points = cfg.MODEL.IOR_DECODER.IOR_ENCODER.NUM_IOR_POINTS
 
         self.ins_seg_transformer = InstanceSegTransformer(cfg)
         self.ior_encoder = IOREncoder(cfg)
@@ -34,8 +34,16 @@ class SRDetrDecoder(nn.Module):
         ppe = self.ins_seg_transformer.get_coord_pe(coords=coords, size=size)  ## B, num, C
 
         tokens = self.ior_encoder(points=ppe, z=z, z_pe=z_pe)  ## tokens: B, nt, C
-        q2 = self.add_ior(token=tokens, query=q)  ## B, nq, C
+        token_pos = torch.repeat_interleave(self.ior_encoder.get_token_pos(), len(tokens), dim=0)  ## B, nt, C
 
-        q = torch.where(labels, q2, q)  ## B, nq, C
+        q2 = self.add_ior(token=tokens, query=q, token_pos=token_pos, query_pos=q_pe)  ## B, nq, C
+        q2 = torch.where(labels, q2, q)  ## B, nq, C
+
         feat = z.transpose(-1, -2).reshape(feat.shape)  ## B, C, H, W
-        return self.mask_decoder(query=q, feat=feat, q_pe=q_pe, z_pe=z_pe)
+        cls_masks, cls_scores = self.mask_decoder(query=q2, feat=feat, q_pe=q_pe, z_pe=z_pe)
+        general_masks, general_scores = self.mask_decoder(query=q, feat=feat, q_pe=q_pe, z_pe=z_pe)
+
+        masks = torch.cat([general_masks[:, 0:-1, :, :], cls_masks[:, -1::, :, :]], dim=1)  ## B, nq, 4H, 4W
+        scores = torch.cat([general_scores[:, 0:-1, :], cls_scores[:, -1::, :]], dim=1)  ## B, nq, 1
+        return masks, scores
+

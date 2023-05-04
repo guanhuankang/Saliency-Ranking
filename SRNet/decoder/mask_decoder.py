@@ -50,11 +50,11 @@ class MaskDecoderLayer(nn.Module):
 
 class MaskDecoder(nn.Module):
     @configurable
-    def __init__(self, embed_dim=256, num_heads=8, hidden_dim=1024, dropout_attn=0.0, dropout_ffn=0.0):
+    def __init__(self, embed_dim=256, num_heads=8, hidden_dim=1024, dropout_attn=0.0, dropout_ffn=0.0, num_blocks=4):
         super().__init__()
         self.layers = nn.ModuleList([
             MaskDecoderLayer(embed_dim=embed_dim, num_heads=num_heads, hidden_dim=hidden_dim, dropout_attn=dropout_attn, dropout_ffn=dropout_ffn)
-            for _ in range(2)
+            for _ in range(num_blocks)
         ])
 
         self.query_to_feat_attn = Attention(embedding_dim=embed_dim, num_heads=num_heads)
@@ -77,7 +77,8 @@ class MaskDecoder(nn.Module):
             "num_heads": cfg.MODEL.IOR_DECODER.CROSSATTN.NUM_HEADS,
             "dropout_attn": cfg.MODEL.IOR_DECODER.CROSSATTN.DROPOUT,
             "hidden_dim": cfg.MODEL.IOR_DECODER.FFN.HIDDEN_DIM,
-            "dropout_ffn": cfg.MODEL.IOR_DECODER.FFN.DROPOUT
+            "dropout_ffn": cfg.MODEL.IOR_DECODER.FFN.DROPOUT,
+            "num_blocks": cfg.MODEL.IOR_DECODER.MASK_DECODER.NUM_BLOCKS
         }
 
     def forward(self, query, feat, q_pe, z_pe):

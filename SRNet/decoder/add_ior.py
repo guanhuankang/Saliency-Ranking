@@ -64,6 +64,7 @@ class InverseAttention(nn.Module):
 class AddIOR(nn.Module):
     @configurable
     def __init__(self, embed_dim=256, num_heads=8, hidden_dim=1024, dropout_attn=0.0, dropout_ffn=0.0):
+        raise "Deprecated Error"
         super().__init__()
         self.inv_attn = InverseAttention(embedding_dim=embed_dim, num_heads=num_heads, downsample_rate=1)
         self.dropout1 = nn.Dropout(p=dropout_attn)

@@ -24,26 +24,25 @@ class IOREncoderLayer(nn.Module):
 
         init_weights_(self)
 
-    def forward(self, q, z, qpe, zpe, skip_first=False):
-        if skip_first:
-            q = self.norm1(q + self.dropout1(self.points_to_feat(q=q, k=z + zpe, v=z)))
-        else:
-            q = self.norm1(q + self.dropout1(self.points_to_feat(q=q + qpe, k=z + zpe, v=z)))
+    def forward(self, q, z, qpe, zpe):
+        q = self.norm1(q + self.dropout1(self.points_to_feat(q=q + qpe, k=z + zpe, v=z)))
         q = self.norm2(q + self.dropout2(self.self_attn(q=q + qpe, k=q + qpe, v=q)))
         q = self.norm3(q + self.dropout3(self.mlp(q)))
         return q
 
-
 class IOREncoder(nn.Module):
     @configurable
     def __init__(self, embed_dim=256, num_heads=8, hidden_dim=1024, num_tokens=20, dropout_attn=0.0, dropout_ffn=0.0,
-                 num_layers=4):
+                 num_blocks=2, num_points=256):
         super().__init__()
-        self.tokens = nn.Parameter(torch.randn(1, num_tokens, embed_dim))
+        self.points = nn.Parameter(torch.zeros(1, num_points, embed_dim))
+        self.tokens = nn.Parameter(torch.zeros(1, num_tokens, embed_dim))
+        self.tokens_pos = nn.Parameter(torch.randn(1, num_tokens, embed_dim))
+
         self.layers = nn.ModuleList([
             IOREncoderLayer(embed_dim=embed_dim, num_heads=num_heads, hidden_dim=hidden_dim, dropout_attn=dropout_attn,
                             dropout_ffn=dropout_ffn)
-            for _ in range(num_layers)
+            for _ in range(num_blocks)
         ])
         self.token_emb = nn.Embedding(1, embedding_dim=embed_dim)
         self.points_emb = nn.Embedding(1, embedding_dim=embed_dim)
@@ -57,32 +56,44 @@ class IOREncoder(nn.Module):
             "dropout_attn": cfg.MODEL.IOR_DECODER.CROSSATTN.DROPOUT,
             "hidden_dim": cfg.MODEL.IOR_DECODER.FFN.HIDDEN_DIM,
             "dropout_ffn": cfg.MODEL.IOR_DECODER.FFN.DROPOUT,
-            "num_layers": cfg.MODEL.IOR_DECODER.NUM_LAYERS,
-            "num_tokens": cfg.MODEL.IOR_DECODER.NUM_TOKENS
+            "num_blocks": cfg.MODEL.IOR_DECODER.IOR_ENCODER.NUM_BLOCKS,
+            "num_tokens": cfg.MODEL.IOR_DECODER.IOR_ENCODER.NUM_TOKENS,
+            "num_points": cfg.MODEL.IOR_DECODER.IOR_ENCODER.NUM_IOR_POINTS
         }
+
+    def get_token_pos(self):
+        """
+
+        Returns:
+            token_pos: 1, nt, C
+
+        """
+        return self.tokens_pos
 
     def forward(self, points, z, z_pe):
         """
 
         Args:
-            points: B, N, C
+            points: B, np, C
             z: B, HW, C
             z_pe: B, HW, C
 
         Returns:
             tokens: B, nt, C
         """
+        B, np, C = points.shape
         nt = self.num_tokens
 
-        tokens = torch.repeat_interleave(self.tokens, len(z), dim=0)  ## B, nt, C
-        q = torch.cat([points, tokens], dim=1)  ## B, N+nt, C
-        q_pe = torch.cat([points + self.points_emb.weight, torch.zeros_like(tokens) + self.token_emb.weight],
-                         dim=1)  ## B, N+nt, C
+        q = torch.cat([self.points, self.tokens], dim=1)  ## 1, np+nt, C
+        q = torch.repeat_interleave(q, B, dim=0)  ## B, np+nt, C
+        q_pe = torch.cat([points, torch.repeat_interleave(self.tokens_pos, B, dim=0)], dim=1)  ## B, np+nt, C
+        q_emb = torch.cat([
+            torch.repeat_interleave(self.points_emb.weight, np, dim=0),
+            torch.repeat_interleave(self.token_emb.weight, nt, dim=0)
+        ], dim=0).unsqueeze(0)  ## 1, np+nt, C
+        q_pe = q_emb + q_pe  ## B, np+nt, C
 
-        skip_first = True
         for layer in self.layers:
-            q = layer(q, z, q_pe, z_pe, skip_first=skip_first)
-            skip_first = False
+            q = layer(q=q, z=z, qpe=q_pe, zpe=z_pe)
 
-        tokens = q[:, -nt::, :]  ## B, nt, C
-        return tokens
+        return q[:, -nt::, :]  ## B, nt, C

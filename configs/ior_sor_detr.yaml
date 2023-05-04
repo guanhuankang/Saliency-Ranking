@@ -20,17 +20,26 @@ MODEL:
         DIM: 256
     IOR_DECODER:
         EMBED_DIM: 256
-        NUM_IOR_POINTS: 256
-        NUM_QUERIES: 20
-        NUM_BLOCKS: 4
-        NUM_TOKENS: 20
-        NUM_LAYERS: 2
+        IOR_ENCODER:
+            NUM_IOR_POINTS: 256
+            NUM_TOKENS: 20
+            NUM_BLOCKS: 2
+        INSTANCE_SEG:
+            NUM_QUERIES: 20
+            NUM_BLOCKS: 4
+        ADDIOR:
+            NUM_BLOCKS: 4
+        MASK_DECODER:
+            NUM_BLOCKS: 4
         CROSSATTN:
             NUM_HEADS: 8
             DROPOUT: 0.0
         FFN:
             HIDDEN_DIM: 1024
             DROPOUT: 0.1
+        LEARNABLE_PE:
+            WIDTH: 32
+            HEIGHT: 32
     WEIGHTS: "pretrained/swin_base_patch4_window12_384_22k.pth"
 DATASETS:
     TRAIN: ("assr_train",)
