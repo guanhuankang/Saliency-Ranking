@@ -28,7 +28,7 @@ class SRDetr(nn.Module):
             lst: list of image H, W
         """
         os.makedirs(self.cfg.OUTPUT_DEBUG, exist_ok=True)
-        lst = [cv2.resize((x.cpu().detach().numpy()*255).astype(np.uint8), size) for x in lst]
+        lst = [cv2.resize((x.cpu().detach().numpy()*255).astype(np.uint8), size, interpolation=cv2.INTER_LINEAR) for x in lst]
         out = Image.fromarray(np.concatenate(lst, axis=1))
         ImageDraw.Draw(out).text((0, 0), text, fill="red")
         out.save(os.path.join(self.cfg.OUTPUT_DEBUG, image_name+".png"))
@@ -58,6 +58,7 @@ class SRDetr(nn.Module):
             target_mask_loss = calc_mask_loss_with_score_loss(pred=pred_masks[:, -1::, :, :], target=targets, pred_iou=ior_scores[:, -1::, :])
             
             if np.random.rand() < 0.1:
+                nq = pred_masks.shape[1]
                 self.debugDump(
                     image_name="latest",
                     text = f"score: {torch.sigmoid(ior_scores[0, -1].float().cpu().detach())}",
@@ -66,9 +67,15 @@ class SRDetr(nn.Module):
                 )
                 self.debugDump(
                     image_name="queries",
-                    text = f"score: {torch.sigmoid(ior_scores[0, 0:-1].float().cpu().detach())}",
-                    lst = tuple(torch.sigmoid(pred_masks[0, 0:-1])),
-                    size = (48, 48)
+                    text = f"score: {torch.sigmoid(ior_scores[0, 0:nq//2].float().cpu().detach()).tolist()}",
+                    lst = tuple(torch.sigmoid(pred_masks[0, 0:nq//2])),
+                    size = (64, 64)
+                )
+                self.debugDump(
+                    image_name="queries",
+                    text = f"score: {torch.sigmoid(ior_scores[0, nq//2::].float().cpu().detach()).tolist()}",
+                    lst = tuple(torch.sigmoid(pred_masks[0, nq//2::])),
+                    size = (64, 64)
                 )
             
 
