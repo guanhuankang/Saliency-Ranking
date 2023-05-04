@@ -34,7 +34,7 @@ MODEL:
     WEIGHTS: "pretrained/swin_base_patch4_window12_384_22k.pth"
 DATASETS:
     TRAIN: ("assr_train",)
-    TEST: ("assr_val",)
+    TEST: ("assr_test",)
     ROOT: "/home/luke/dataset/SOR_RANK/coco_sor"
 DATALOADER:
     NUM_WORKERS: 4
@@ -42,7 +42,7 @@ SOLVER:
     AMP:
         ENABLED: true
     BACKBONE_MULTIPLIER: 0.1
-    BASE_LR: 0.00001
+    BASE_LR: 0.00005
     CHECKPOINT_PERIOD: 5000
     CLIP_GRADIENTS:
         CLIP_TYPE: full_model
@@ -54,8 +54,8 @@ SOLVER:
     LR_SCHEDULER_NAME: WarmupMultiStepLR
     MOMENTUM: 0.9
     OPTIMIZER: ADAMW
-    STEPS: (54000, 57000)
-    MAX_ITER: 60000
+    STEPS: (95000, 98000)
+    MAX_ITER: 100000
     REFERENCE_WORLD_SIZE: 0
     WARMUP_FACTOR: 1.0
     WARMUP_ITERS: 10
@@ -73,7 +73,7 @@ OUTPUT_EVAL: "output/eval"
 EVAL_SAVE: false
 TEST:
     EVAL_PERIOD: 5000
-    UTMOST_OBJECTS: 12
+    UTMOST_OBJECTS: 5
     METRICS_OF_INTEREST: ["mae", "acc", "fbeta", "iou", "sa_sor", "sor", "ap", "ar", "top1"]
     THRESHOLD: 0.5
     EXPECTED_RESULTS: []
