@@ -39,6 +39,7 @@ class AddIORLayer(nn.Module):
 
 
 class AddIOR(nn.Module):
+    @configurable
     def __init__(self, embed_dim=256, num_heads=8, hidden_dim=1024, dropout_attn=0.0, dropout_ffn=0.0, num_blocks=4):
         super().__init__()
         self.query_emb = nn.Embedding(1, embedding_dim=embed_dim)
