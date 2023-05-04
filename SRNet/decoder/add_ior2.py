@@ -77,9 +77,11 @@ class AddIOR(nn.Module):
         '''
         t_pe = token_pos + self.token_emb.weight.unsqueeze(0)  ## B, nt, C
         q_pe = query_pos + self.query_emb.weight.unsqueeze(0)  ## B, nq, C
-
+        
+        q = query
+        t = token
         for layer in self.layers:
-            q, t = layer(q=query, t=token, q_pe=q_pe, t_pe=t_pe)
+            q, t = layer(q=q, t=t, q_pe=q_pe, t_pe=t_pe)
 
         q = self.norm(q + self.q_to_query_attn(q=q + q_pe, k=query + q_pe, v=query))  ## B, nq, C
 
