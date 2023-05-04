@@ -25,7 +25,7 @@ class SOREvaluator(DatasetEvaluator):
             image_name = inp["image_name"]
             
             ## EVAL
-            self.results.append(self.metrics.process(preds=out["masks"], gts=tuple(inp["masks"]), thres=thres))
+            self.results.append(self.metrics.process(preds=out["masks"], gts=list(inp["masks"]), thres=thres))
             self.image_names.append(image_name)
             
             ## SAVE

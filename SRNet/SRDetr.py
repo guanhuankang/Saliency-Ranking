@@ -22,14 +22,15 @@ class SRDetr(nn.Module):
         self.register_buffer("pixel_mean", torch.tensor(cfg.MODEL.PIXEL_MEAN).reshape(1, -1, 1, 1), False)
         self.register_buffer("pixel_std", torch.tensor(cfg.MODEL.PIXEL_STD).reshape(1, 3, 1, 1), False)
 
-    def debugDump(self, image_name, pred_mask, target, score):
-        pred = (torch.sigmoid(
-            F.interpolate(pred_mask.detach().float().cpu().unsqueeze(0).unsqueeze(1), size=target.shape, mode="bilinear")
-        ).numpy() * 255).astype(np.uint8)[0,0]
-        target = (target.detach().cpu().numpy() * 255).astype(np.uint8)
+    def debugDump(self, image_name, text, lst):
+        """
+        Args:
+            lst: list of image H, W
+        """
         os.makedirs(self.cfg.OUTPUT_DEBUG, exist_ok=True)
-        out = Image.fromarray(np.concatenate([pred, target], axis=1))
-        ImageDraw.Draw(out).text((0, 0), f"score:{torch.sigmoid(score.float())}", fill="red")
+        lst = [(x.cpu().detach().numpy()*255).astype(np.uint8) for x in lst]
+        out = Image.fromarray(np.concatenate(lst, axis=1))
+        ImageDraw.Draw(out).text((0, 0), text, fill="red")
         out.save(os.path.join(self.cfg.OUTPUT_DEBUG, image_name+".png"))
 
     @property
@@ -55,12 +56,22 @@ class SRDetr(nn.Module):
             general_scores = tuple(ior_scores[:,0:-1, :])  ## Tuple B, nq-1, 1
             general_mask_loss = sum([objectness_loss(pred_masks=general_masks[i], ref_masks=masks[i], pred_iou=general_scores[i]) for i in range(B)])
             target_mask_loss = calc_mask_loss_with_score_loss(pred=pred_masks[:, -1::, :, :], target=targets, pred_iou=ior_scores[:, -1::, :])
-            mask_loss = general_mask_loss + target_mask_loss
 
-            self.debugDump("latest", pred_masks[0, -1], targets[0, 0], ior_scores[0, -1].cpu())
+            self.debugDump(
+                image_name="latest",
+                text = f"score: {torch.sigmoid(ior_scores[0, -1].cpu().detach())}",
+                lst = [torch.sigmoid(pred_masks[0, -1]), targets[0, 0]]
+            )
+            self.debugDump(
+                image_name="queries",
+                text = f"score: {torch.sigmoid(ior_scores[0, 0:-1].cpu().detach())}",
+                lst = torch.sigmoid(pred_masks[0, 0:-1])
+            )
+            
 
             return {
-                "mask_loss": mask_loss
+                "general_mask_loss": general_mask_loss,
+                "target_mask_loss": target_mask_loss
             }
 
         else:
