@@ -1,8 +1,7 @@
-nvidia-smi
-python train_net.py --config-file configs/ior_sor_detr.yaml --num-gpus 1 \
-SOLVER.IMS_PER_BATCH 4 INPUT.FT_SIZE_TRAIN 1024 INPUT.FT_SIZE_TEST 1024 \
-TEST.EVAL_PERIOD 5000 \
-DATASETS.ROOT /home/grads/huankguan2/projects/saliencyranking/dataset/coco_sor \
-SOLVER.BASE_LR 0.0001 \
-SOLVER.STEPS [27000,28500]\
-SOLVER.MAX_ITER 30000
+executable = z_train.sh
+requirements = (CUDADeviceName == "Tesla V100-SXM2-32GB")
+request_GPUs = 4
+error      = error.txt
+log        = output.txt
+output     = stdout
+queue

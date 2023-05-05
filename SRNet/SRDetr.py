@@ -93,7 +93,7 @@ class SRDetr(nn.Module):
             results = []
             for b_i in range(len(batch_dict)):
                 H, W = batch_dict[b_i]["height"], batch_dict[b_i]["width"]
-                ior_masks = batch_dict[b_i].get("ior_masks") or torch.zeros((0,)+images.shape[-2::], device=self.device)
+                ior_masks = batch_dict[b_i].get("ior_masks") or torch.zeros((0,H,W), device=self.device)
                 utmost_objects = batch_dict[b_i].get("utmost_objects") or self.cfg.TEST.UTMOST_OBJECTS
                 image_name = batch_dict[b_i].get("image_name") or "unknown_{}".format(b_i)
 
@@ -102,9 +102,12 @@ class SRDetr(nn.Module):
                 while utmost_objects > 0:
                     utmost_objects -= 1
                     mask, score = self.decoder(feat=feat[b_i:b_i+1, :, :, :], ior_masks=[ior_masks])  ## 1,nq,4H,4W | 1,nq,1
-                    mask = F.interpolate(mask, size=(H, W), mode="bilinear")[0, -1].cpu() ## resize back to original size: H, W
-                    score = score[0, -1].cpu()  ## torch.float
-                    masks.append(torch.sigmoid(mask))
-                    scores.append(torch.sigmoid(score))
+                    mask = F.interpolate(mask, size=(H, W), mode="bilinear")[0, -1] ## resize back to original size: H, W
+                    ior_masks = torch.cat([ior_masks, torch.sigmoid(mask).unsqueeze(0)], dim=0)  ## ?, H, W
+
+                    score = score[0, -1]  ## torch.float
+                    masks.append(torch.sigmoid(mask).cpu())
+                    scores.append(torch.sigmoid(score).cpu())
+
                 results.append({"image_name": image_name, "masks": masks, "scores": scores, "num": len(scores)})
             return results
