@@ -63,6 +63,7 @@ class MaskDecoder(nn.Module):
 
         self.mask_mlp = MLPBlock(embedding_dim=embed_dim, mlp_dim=hidden_dim)
         self.iou_head = nn.Linear(embed_dim, 1)
+        self.obj_head = nn.Linear(embed_dim, 1)
         self.conv_trans_x4 = nn.Sequential(
             nn.ConvTranspose2d(embed_dim, embed_dim, kernel_size=3, padding=1, output_padding=1, stride=2, dilation=1),
             nn.ConvTranspose2d(embed_dim, embed_dim, kernel_size=3, padding=1, output_padding=1, stride=2, dilation=1)
@@ -104,5 +105,6 @@ class MaskDecoder(nn.Module):
         feat = self.conv_trans_x4(feat) ## B, C, 4H, 4W
 
         iou_socres = self.iou_head(query) ## B, nq, 1
+        obj_scores = self.obj_head(query)
         masks = torch.matmul(self.mask_mlp(query), feat.flatten(2)).reshape(B, -1, 4*H, 4*W) ## B, nq, H, W
-        return masks, iou_socres
+        return masks, iou_socres, obj_scores

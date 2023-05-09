@@ -50,18 +50,12 @@ class SRDetr(nn.Module):
 
         if self.training:
             B = len(batch_dict)
+
             masks = [x["masks"].to(self.device) for x in batch_dict]
-            selection = [np.random.randint(tot) for tot in [len(m) for m in masks]]
-            targets = torch.stack([m[s] for s, m in zip(selection, masks)], dim=0).unsqueeze(1).to(self.device)  ## B, 1, H, W
-            ior_masks = [m[0:s].to(self.device) for s, m in zip(selection, masks)]  ## list of torch.Tensor
-
-            pred_masks, ior_scores = self.decoder(feat=feat, ior_masks=ior_masks)
-
-            general_masks = tuple(pred_masks[:,0:-1,:,:])  ## Tuple B, nq-1, H, W
-            general_scores = tuple(ior_scores[:,0:-1, :])  ## Tuple B, nq-1, 1
-            general_mask_loss = sum([objectness_loss(pred_masks=general_masks[i], ref_masks=masks[i], pred_iou=general_scores[i]) for i in range(B)])
-            target_mask_loss = calc_mask_loss_with_score_loss(pred=pred_masks[:, -1::, :, :], target=targets, pred_iou=ior_scores[:, -1::, :])
+            pred_masks, ior_scores, obj_scores = self.decoder(feat=feat)
             
+            
+
             if np.random.rand() < 0.1:
                 nq = pred_masks.shape[1]
                 self.debugDump(
