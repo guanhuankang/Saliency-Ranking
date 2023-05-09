@@ -8,7 +8,7 @@ import torch.nn.functional as F
 
 from detectron2.modeling import META_ARCH_REGISTRY, build_backbone
 from .decoder import SRDetrDecoder, Neck
-from .loss import calc_mask_loss_with_score_loss, objectness_loss
+from .loss import hungarianMatcher, batch_mask_loss
 
 @META_ARCH_REGISTRY.register()
 class SRDetr(nn.Module):
@@ -31,9 +31,9 @@ class SRDetr(nn.Module):
         os.makedirs(self.cfg.OUTPUT_DEBUG, exist_ok=True)
         outs = []
         for text, lst in zip(texts, lsts):
-            lst = [cv2.resize((x.cpu().detach().numpy()*255).astype(np.uint8), size, interpolation=cv2.INTER_LINEAR) for x in lst]
+            lst = [cv2.resize((x.numpy()*255).astype(np.uint8), size, interpolation=cv2.INTER_LINEAR) for x in lst]
             out = Image.fromarray(np.concatenate(lst, axis=1))
-            ImageDraw.Draw(out).text((0, 0), text, fill="red")
+            ImageDraw.Draw(out).text((0, 0), str(text), fill="red")
             outs.append(np.array(out))
         out = Image.fromarray(np.concatenate(outs, axis=0))
         out.save(os.path.join(self.cfg.OUTPUT_DEBUG, image_name+".png"))
@@ -50,58 +50,54 @@ class SRDetr(nn.Module):
 
         if self.training:
             B = len(batch_dict)
-
+            H, W = batch_dict[0]["masks"].shape[-2::]
             masks = [x["masks"].to(self.device) for x in batch_dict]
-            pred_masks, ior_scores, obj_scores = self.decoder(feat=feat)
-            
-            
+            pred_masks, iou_scores, obj_scores = self.decoder(feat=feat)
+            pred_masks = F.interpolate(pred_masks, size=(H,W), mode="bilinear")
 
-            if np.random.rand() < 0.1:
-                nq = pred_masks.shape[1]
+            indices = hungarianMatcher(preds={"masks": pred_masks, "scores": obj_scores}, targets=masks)  ## list of tuples of indices
+            stack_pred_masks = torch.cat([pred_masks[b,indices[b][0],:,:] for b in range(B)], dim=0)  ## K,H,W
+            stack_tgt_masks = torch.cat([masks[b][indices[b][1]] for b in range(B)], dim=0)  ## K,H,W
+            stack_iou = torch.cat([iou_scores[b,indices[b][0],0] for b in range(B)], dim=0)  ## K
+            stack_iou_gt = torch.stack([(p.sigmoid()*m).sum()/((p.sigmoid()+m).sum()+1e-6) for p, m in zip(stack_pred_masks, stack_tgt_masks)])  ## K
+            pos = F.binary_cross_entropy_with_logits(obj_scores, torch.ones_like(obj_scores), reduction="none")
+            neg = F.binary_cross_entropy_with_logits(obj_scores, torch.zeros_like(obj_scores), reduction="none")
+            mat = torch.zeros_like(obj_scores)
+            for b in range(B):
+                mat[b, indices[b][0], :] += 1.0
+            mask_loss = F.binary_cross_entropy_with_logits(stack_pred_masks, stack_tgt_masks)
+            obj_loss = (pos * mat).mean() + 0.1 * (neg * (1.0 - mat)).mean()
+            iou_loss = ((torch.sigmoid(stack_iou)-stack_iou_gt)**2).mean()
+
+            if np.random.rand() < 0.2:
+                plst = list(stack_pred_masks[0:5].detach().float().cpu().sigmoid())
+                ioulst = stack_iou[0:5].detach().float().cpu().sigmoid().tolist()
+                gtlst = list(stack_tgt_masks[0:5].detach().float().cpu().sigmoid())
+                iougt = stack_iou_gt[0:5].detach().float().cpu().sigmoid().tolist()
                 self.debugDump(
                     image_name="latest",
-                    texts = [f"score: {torch.sigmoid(ior_scores[0, -1].float().cpu().detach())}"],
-                    lsts = [[torch.sigmoid(pred_masks[0, -1]), targets[0, 0]]],
-                    size = (256, 256)
-                )
-                self.debugDump(
-                    image_name="queries",
-                    texts = [
-                        f"score: {torch.sigmoid(ior_scores[0, 0:nq//2].float().cpu().detach()).tolist()}",
-                        f"score: {torch.sigmoid(ior_scores[0, nq//2::].float().cpu().detach()).tolist()}"
-                    ],
-                    lsts = [
-                        tuple(torch.sigmoid(pred_masks[0, 0:nq//2])),
-                        tuple(torch.sigmoid(pred_masks[0, nq//2::]))
-                    ],
-                    size = (100, 100)
+                    texts = [ioulst, iougt],
+                    lsts = [plst, gtlst],
+                    size = (200, 200)
                 )
 
             return {
-                "general_mask_loss": general_mask_loss,
-                "target_mask_loss": target_mask_loss
+                "mask_loss": mask_loss,
+                "obj_loss": obj_loss,
+                "iou_loss": iou_loss
             }
 
         else:
+            torch.cuda.empty_cache()
             ## Inference
+            pred_masks, iou_scores, obj_scores = self.decoder(feat=feat)
             results = []
-            for b_i in range(len(batch_dict)):
-                H, W = batch_dict[b_i]["height"], batch_dict[b_i]["width"]
-                ior_masks = batch_dict[b_i].get("ior_masks") or torch.zeros((0,H,W), device=self.device)
-                utmost_objects = batch_dict[b_i].get("utmost_objects") or self.cfg.TEST.UTMOST_OBJECTS
-                image_name = batch_dict[b_i].get("image_name") or "unknown_{}".format(b_i)
-
-                masks = []
-                scores = []
-                while utmost_objects > 0:
-                    utmost_objects -= 1
-                    mask, score = self.decoder(feat=feat[b_i:b_i+1, :, :, :], ior_masks=[ior_masks])  ## 1,nq,4H,4W | 1,nq,1
-                    mask = F.interpolate(mask, size=(H, W), mode="bilinear")[0, -1] ## resize back to original size: H, W
-                    ior_masks = torch.cat([ior_masks, torch.sigmoid(mask).unsqueeze(0)], dim=0)  ## ?, H, W
-
-                    score = score[0, -1]  ## torch.float
-                    masks.append(torch.sigmoid(mask).cpu())
-                    scores.append(torch.sigmoid(score).cpu())
-
+            for b in range(len(batch_dict)):
+                H, W = batch_dict[b]["height"], batch_dict[b]["width"]
+                image_name = batch_dict[b].get("image_name") or "unknown_{}".format(b)
+                obj_idx = torch.where(torch.sigmoid(obj_scores[b, :, 0]).detach().cpu() > .5)
+                masks = pred_masks[b, obj_idx].detach().cpu()  ## K,h,w
+                masks = list(F.interpolate(masks.unsqueeze(0), size=(H, W), mode="bilinear").squeeze(0))  # K,H,W
+                scores = iou_scores[b, obj_idx, 0].sigmoid().detach().cpu().tolist()
                 results.append({"image_name": image_name, "masks": masks, "scores": scores, "num": len(scores)})
             return results
