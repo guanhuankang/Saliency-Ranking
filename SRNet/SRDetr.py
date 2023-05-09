@@ -73,7 +73,7 @@ class SRDetr(nn.Module):
                 plst = list(stack_pred_masks[0:5].detach().float().cpu().sigmoid())
                 ioulst = stack_iou[0:5].detach().float().cpu().sigmoid().tolist()
                 gtlst = list(stack_tgt_masks[0:5].detach().float().cpu())
-                iougt = stack_iou_gt[0:5].detach().float().cpu().sigmoid().tolist()
+                iougt = stack_iou_gt[0:5].detach().float().cpu().tolist()
                 self.debugDump(
                     image_name="latest",
                     texts = [ioulst, iougt],
