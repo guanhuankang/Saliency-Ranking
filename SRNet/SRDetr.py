@@ -95,9 +95,13 @@ class SRDetr(nn.Module):
             for b in range(len(batch_dict)):
                 H, W = batch_dict[b]["height"], batch_dict[b]["width"]
                 image_name = batch_dict[b].get("image_name") or "unknown_{}".format(b)
-                obj_idx = torch.where(torch.sigmoid(obj_scores[b, :, 0]).detach().cpu() > .5)
-                masks = pred_masks[b, obj_idx].detach().cpu()  ## K,h,w
-                masks = list(F.interpolate(masks.unsqueeze(0), size=(H, W), mode="bilinear").squeeze(0))  # K,H,W
-                scores = iou_scores[b, obj_idx, 0].sigmoid().detach().cpu().tolist()
+                is_obj = torch.sigmoid(obj_scores[b, :, 0]).detach().cpu() > .5
+                masks = []
+                scores = []
+                for i, obj_ in enumerate(is_obj):
+                    if obj_:
+                        mask = F.interpolate(pred_masks[b:b+1, i:i+1], size=(H, W), mode="bilinear")[0, 0].detach().cpu()
+                        masks.append(torch.sigmoid(mask))
+                        scores.append(iou_scores[b, i, 0].sigmoid().detach().cpu())
                 results.append({"image_name": image_name, "masks": masks, "scores": scores, "num": len(scores)})
             return results
