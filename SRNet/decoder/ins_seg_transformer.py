@@ -23,18 +23,13 @@ class InstanceSegBlock(nn.Module):
         self.dropout3 = nn.Dropout(p=dropout_ffn)
         self.norm3 = nn.LayerNorm(embed_dim)
 
-        self.z2q = Attention(embedding_dim=embed_dim, num_heads=num_heads, downsample_rate=1)
-        self.dropout4 = nn.Dropout(p=dropout_attn)
-        self.norm4 = nn.LayerNorm(embed_dim)
-
         init_weights_(self)
 
     def forward(self, q, z, qpe, zpe):
         q = self.norm1(q + self.dropout1(self.q2z(q=q + qpe, k=z + zpe, v=z)))
         q = self.norm2(q + self.dropout2(self.self_attn(q=q + qpe, k=q + qpe, v=q)))
         q = self.norm3(q + self.dropout3(self.mlp(q)))
-        z = self.norm4(z + self.dropout4(self.z2q(q=z + zpe, k=q+qpe, v=q)))
-        return q, z
+        return q
 
 
 class InstanceSegTransformer(nn.Module):
@@ -44,7 +39,7 @@ class InstanceSegTransformer(nn.Module):
         super().__init__()
         self.query = nn.Parameter(torch.zeros(1, num_queries, embed_dim))
         self.query_pos = nn.Parameter(torch.randn(1, num_queries, embed_dim))
-        self.key_scale = nn.Parameter(torch.ones(embed_dim))
+        # self.key_scale = nn.Parameter(torch.ones(embed_dim))
 
         self.layers = nn.ModuleList([
             InstanceSegBlock(embed_dim=embed_dim, num_heads=num_heads, hidden_dim=hidden_dim, dropout_attn=dropout_attn,
@@ -79,7 +74,7 @@ class InstanceSegTransformer(nn.Module):
              dense_pe: 1 x C x H x W
 
         '''
-        return self.pe_layer(size).unsqueeze(0) * self.key_scale.view(1, -1, 1, 1)
+        return self.pe_layer(size).unsqueeze(0)  # * self.key_scale.view(1, -1, 1, 1)
 
     def get_coord_pe(self, coords: torch.Tensor, size: Tuple[int, int]) -> torch.Tensor:
         '''
@@ -91,7 +86,7 @@ class InstanceSegTransformer(nn.Module):
             coords_pe: B, *, C
 
         '''
-        return self.pe_layer.forward_with_coords(coords, size) * self.key_scale.view(-1)
+        return self.pe_layer.forward_with_coords(coords, size)  # * self.key_scale.view(-1)
 
     def get_query_emb(self, plus_pos=True):
         """
@@ -106,6 +101,9 @@ class InstanceSegTransformer(nn.Module):
         if plus_pos:
             q_emb = q_emb + self.query_pos
         return q_emb
+
+    def get_query_pos(self):
+        return self.query_pos
 
     def forward(self, feat: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """
@@ -126,11 +124,11 @@ class InstanceSegTransformer(nn.Module):
         ## prepare q, z and qpe, zpe (positional embedding)
         q = torch.repeat_interleave(self.query, B, dim=0)  ## B, nq, C
         z = feat.flatten(2).transpose(-1, -2)  ## B, HW, C
-        qpe = torch.repeat_interleave(self.get_query_emb(), B, dim=0)  ## B, nq, C
+        qpe = torch.repeat_interleave(self.get_query_pos(), B, dim=0)  ## B, nq, C
         zpe = torch.repeat_interleave(self.get_dense_pe(size), B, dim=0).flatten(2).transpose(-1, -2)  ## B, HW, C
 
         ## feed to layers
         for layer in self.layers:
-            q, z = layer(q=q, z=z, qpe=qpe, zpe=zpe)
+            q = layer(q=q, z=z, qpe=qpe, zpe=zpe)
 
         return q, z, qpe, zpe

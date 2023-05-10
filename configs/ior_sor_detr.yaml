@@ -26,11 +26,11 @@ MODEL:
             NUM_BLOCKS: 2
         INSTANCE_SEG:
             NUM_QUERIES: 80
-            NUM_BLOCKS: 4
+            NUM_BLOCKS: 6
         ADDIOR:
             NUM_BLOCKS: 4
         MASK_DECODER:
-            NUM_BLOCKS: 4
+            NUM_BLOCKS: 2
         CROSSATTN:
             NUM_HEADS: 8
             DROPOUT: 0.0
@@ -51,7 +51,7 @@ SOLVER:
     AMP:
         ENABLED: true
     BACKBONE_MULTIPLIER: 0.1
-    BASE_LR: 0.00001
+    BASE_LR: 0.0001
     CHECKPOINT_PERIOD: 5000
     CLIP_GRADIENTS:
         CLIP_TYPE: full_model
@@ -64,8 +64,8 @@ SOLVER:
     LR_SCHEDULER_NAME: WarmupMultiStepLR
     MOMENTUM: 0.9
     OPTIMIZER: ADAMW
-    STEPS: (95000, 98000)
-    MAX_ITER: 100000
+    STEPS: (180000, 190000)
+    MAX_ITER: 200000
     REFERENCE_WORLD_SIZE: 0
     WARMUP_FACTOR: 1.0
     WARMUP_ITERS: 10
@@ -79,7 +79,7 @@ INPUT:
     FORMAT: "RGB"
 OUTPUT_DIR: "output/"
 TEST:
-    EVAL_PERIOD: 5000
+    EVAL_PERIOD: 8000
     UTMOST_OBJECTS: 5
     METRICS_OF_INTEREST: ["mae", "acc", "fbeta", "iou", "sa_sor", "sor", "ap", "ar", "top1"]
     THRESHOLD: 0.5
