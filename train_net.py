@@ -165,6 +165,8 @@ def main(args):
 
 if __name__ == "__main__":
     args = default_argument_parser().parse_args()
+    args.num_gpus = torch.cuda.device_count()
+    print("Available GPUs:", args.num_gpus)
     print("Command Line Args:", args)
     launch(
         main,
