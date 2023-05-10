@@ -75,8 +75,8 @@ class SOREvaluator(DatasetEvaluator):
             self.image_names.append(image_name)
             
             ## SAVE
-            if self.cfg.EVAL_SAVE:
-                out_path = os.path.join(self.cfg.OUTPUT_EVAL, self.dataset_name)
+            if self.cfg.TEST.EVAL_SAVE:
+                out_path = os.path.join(self.cfg.OUTPUT_DIR, "eval", self.dataset_name)
                 os.makedirs(out_path, exist_ok=True)
                 preds = [x.cpu().detach().numpy() for x in preds]
                 n = len(preds)

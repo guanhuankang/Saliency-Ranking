@@ -33,7 +33,7 @@ class SRDetr(nn.Module):
             texts: list of text
             lsts: list of list of image H, W
         """
-        os.makedirs(self.cfg.OUTPUT_DEBUG, exist_ok=True)
+        os.makedirs(os.path.join(self.cfg.OUTPUT_DIR, "debug"), exist_ok=True)
         outs = []
         for text, lst in zip(texts, lsts):
             lst = [cv2.resize((x.numpy()*255).astype(np.uint8), size, interpolation=cv2.INTER_LINEAR) for x in lst]
@@ -41,7 +41,7 @@ class SRDetr(nn.Module):
             ImageDraw.Draw(out).text((0, 0), str(text), fill="red")
             outs.append(np.array(out))
         out = Image.fromarray(np.concatenate(outs, axis=0))
-        out.save(os.path.join(self.cfg.OUTPUT_DEBUG, image_name+".png"))
+        out.save(os.path.join(self.cfg.OUTPUT_DIR, "debug", image_name+".png"))
 
     @property
     def device(self):

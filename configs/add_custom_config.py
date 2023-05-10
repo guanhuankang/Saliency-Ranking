@@ -71,13 +71,10 @@ def add_custom_config(cfg, args):
     cfg.TEST.AUG = CN()
     cfg.TEST.AUG.ENABLED = False
     cfg.TEST.UPPER_BOUND = False
+    cfg.TEST.EVAL_SAVE = False
     cfg.TEST.UTMOST_OBJECTS = 20
     cfg.TEST.METRICS_OF_INTEREST = ["mae"]
     cfg.TEST.THRESHOLD = 0.5
 
     cfg.INPUT.FT_SIZE_TRAIN = 800
     cfg.INPUT.FT_SIZE_TEST = 800
-
-    cfg.OUTPUT_DEBUG = "output/debug/"
-    cfg.OUTPUT_EVAL = "output/eval"
-    cfg.EVAL_SAVE = False
