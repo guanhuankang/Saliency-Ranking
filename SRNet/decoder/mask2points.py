@@ -52,7 +52,8 @@ def mask2points(ior_masks: List, num: int):
     indices = []
     labels = []
     H, W = 0, 0
-    for m in ior_masks:
+    for m_ in ior_masks:
+        m = m_.gt(0.5).float()
         H, W = m.shape[-2::]
         if m.sum() < 0.5:
             labels.append(torch.zeros((1, 1, 1), device=m.device))
