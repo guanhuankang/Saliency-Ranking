@@ -89,6 +89,6 @@ TEST:
         NUM_ITER: 200
     AUG:
         ENABLED: false
-    UPPER_BOUND: false
+    UPPER_BOUND: true
     EVAL_SAVE: false
 VERSION: 2
