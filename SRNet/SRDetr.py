@@ -106,7 +106,8 @@ class SRDetr(nn.Module):
                 for i, obj_ in enumerate(is_obj):
                     if obj_:
                         mask = F.interpolate(pred_masks[b:b+1, i:i+1], size=(H, W), mode="bilinear")[0, 0].detach().cpu()
-                        masks.append(torch.sigmoid(mask))
+                        mask = mask.gt(0.0).float()
+                        masks.append(mask)
                         scores.append(iou_scores[b, i, 0].sigmoid().detach().cpu())
                 results.append({"image_name": image_name, "masks": masks, "scores": scores, "num": len(scores)})
             return results

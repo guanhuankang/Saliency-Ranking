@@ -126,6 +126,7 @@ if __name__ == "__main__":
 
             ## save:
             if args.output:
+                os.makedirs(args.output, exist_ok=True)
                 image_name = path.split("/")[-1][0:-4]
                 idx = 1
                 for m,s in zip(predictions["masks"], predictions["scores"]):
