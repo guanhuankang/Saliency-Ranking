@@ -26,7 +26,7 @@ MODEL:
             NUM_BLOCKS: 2
         INSTANCE_SEG:
             NUM_QUERIES: 80
-            NUM_BLOCKS: 6
+            NUM_BLOCKS: 4
         ADDIOR:
             NUM_BLOCKS: 4
         MASK_DECODER:

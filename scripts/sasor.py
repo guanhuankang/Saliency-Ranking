@@ -97,7 +97,7 @@ def evalu(results, iou_thread):
 # gtpath = r"D:\SaliencyRanking\dataset\irsr\Images\test\gt"
 # predpath = r"D:\SaliencyRanking\comparedResults\IRSR\saliency_maps"
 gtpath = r"D:\SaliencyRanking\dataset\ASSR\ASSR\gt\test"
-predpath = r"D:\SaliencyRanking\retrain_compared_results\ASSR\ASSR\saliency_maps"
+predpath = r"D:\SaliencyRanking\ours\Saliency-Ranking\output\eval\merge"
 
 L = [x for x in os.listdir(gtpath) if x.endswith(".png")]
 input_data = []

@@ -65,6 +65,7 @@ def add_custom_config(cfg, args):
     cfg.SOLVER.OPTIMIZER = "ADAMW"
     cfg.SOLVER.WEIGHT_DECAY_EMBED = 0.0
     cfg.SOLVER.IMS_PER_GPU = 1
+    cfg.SOLVER.ITERS_PER_STEP = 1
     cfg.SOLVER.NUM_GPUS = args.num_gpus
 
     cfg.TEST.AUG = CN()

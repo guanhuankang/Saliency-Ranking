@@ -34,8 +34,6 @@ class Trainer(DefaultTrainer):
         defaults = {}
         defaults["lr"] = cfg.SOLVER.BASE_LR
         defaults["weight_decay"] = cfg.SOLVER.WEIGHT_DECAY
-        num_iters_to_step = int(max(cfg.SOLVER.IMS_PER_BATCH / cfg.SOLVER.IMS_PER_GPU * cfg.SOLVER.NUM_GPUS, 1))
-        print(f"NUM_ITERS_TO_STEP: {num_iters_to_step}", flush=True)
 
         norm_module_types = (
             torch.nn.BatchNorm1d,
@@ -89,7 +87,8 @@ class Trainer(DefaultTrainer):
                 def __init__(self, params, defaults):
                     super().__init__(params, defaults)
                     self.cur_iter = 0
-                    self.exp_iter = num_iters_to_step
+                    self.exp_iter = cfg.SOLVER.ITERS_PER_STEP
+                    print(f"NUM_ITERS_TO_STEP: {cfg.SOLVER.ITERS_PER_STEP}", flush=True)
 
                 def step(self, closure=None):
                     all_params = itertools.chain(*[x["params"] for x in self.param_groups])
@@ -135,7 +134,13 @@ def setup(args):
     add_custom_config(cfg, args)
     cfg.merge_from_file(args.config_file)
     cfg.merge_from_list(args.opts)
+
+    ## Adjust IMS_PER_BATCH
+    cfg.SOLVER.ITERS_PER_STEP = int(max(cfg.SOLVER.IMS_PER_BATCH / (cfg.SOLVER.IMS_PER_GPU * cfg.SOLVER.NUM_GPUS), 1))
+    cfg.SOLVER.IMS_PER_BATCH = cfg.SOLVER.IMS_PER_GPU * cfg.SOLVER.NUM_GPUS
+
     cfg.freeze()
+
     default_setup(cfg, args)
     logger.setup_logger(output=cfg.OUTPUT_DIR, distributed_rank=comm.get_rank(), name="toy")
     return cfg
