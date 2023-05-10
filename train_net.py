@@ -2,9 +2,9 @@ import torch, copy
 import itertools
 
 from detectron2.engine import (
-    DefaultTrainer, 
-    default_argument_parser, 
-    default_setup, 
+    DefaultTrainer,
+    default_argument_parser,
+    default_setup,
     launch
 )
 
@@ -20,6 +20,7 @@ from configs.add_custom_config import add_custom_config
 from dataset import register_sor_dataset, sor_dataset_mapper_train, sor_dataset_mapper_test
 from evaluation import SOREvaluator
 from SRNet import SRDetr
+
 
 class Trainer(DefaultTrainer):
     @classmethod
@@ -64,8 +65,8 @@ class Trainer(DefaultTrainer):
                 if "backbone" in module_name:
                     hyperparams["lr"] = hyperparams["lr"] * cfg.SOLVER.BACKBONE_MULTIPLIER
                 if (
-                    "relative_position_bias_table" in module_param_name
-                    or "absolute_pos_embed" in module_param_name
+                        "relative_position_bias_table" in module_param_name
+                        or "absolute_pos_embed" in module_param_name
                 ):
                     hyperparams["weight_decay"] = 0.0
                 if isinstance(module, norm_module_types):
@@ -78,16 +79,28 @@ class Trainer(DefaultTrainer):
             # detectron2 doesn't have full model gradient clipping now
             clip_norm_val = cfg.SOLVER.CLIP_GRADIENTS.CLIP_VALUE
             enable = (
-                cfg.SOLVER.CLIP_GRADIENTS.ENABLED
-                and cfg.SOLVER.CLIP_GRADIENTS.CLIP_TYPE == "full_model"
-                and clip_norm_val > 0.0
+                    cfg.SOLVER.CLIP_GRADIENTS.ENABLED
+                    and cfg.SOLVER.CLIP_GRADIENTS.CLIP_TYPE == "full_model"
+                    and clip_norm_val > 0.0
             )
 
             class FullModelGradientClippingOptimizer(optim):
+                def __init__(self, params, defaults):
+                    super().__init__(params, defaults)
+                    self.cur_iter = 0
+                    self.exp_iter = 16
+
                 def step(self, closure=None):
                     all_params = itertools.chain(*[x["params"] for x in self.param_groups])
                     torch.nn.utils.clip_grad_norm_(all_params, clip_norm_val)
                     super().step(closure=closure)
+
+                def zero_grad(self, set_to_none: bool = True):
+                    self.cur_iter += 1
+                    if self.cur_iter >= self.exp_iter:
+                        self.cur_iter = 0
+                        super().zero_grad(set_to_none)
+                    torch.cuda.empty_cache()
 
             return FullModelGradientClippingOptimizer if enable else optim
 
@@ -108,11 +121,12 @@ class Trainer(DefaultTrainer):
 
     @classmethod
     def build_train_loader(cls, cfg):
-        return build_detection_train_loader(cfg, mapper = lambda x:sor_dataset_mapper_train(x, cfg=cfg))
-    
+        return build_detection_train_loader(cfg, mapper=lambda x: sor_dataset_mapper_train(x, cfg=cfg))
+
     @classmethod
     def build_test_loader(cls, cfg, dataset_name):
-        return build_detection_test_loader(cfg, dataset_name, mapper = lambda x:sor_dataset_mapper_test(x, cfg=cfg))
+        return build_detection_test_loader(cfg, dataset_name, mapper=lambda x: sor_dataset_mapper_test(x, cfg=cfg))
+
 
 def setup(args):
     """
@@ -126,6 +140,7 @@ def setup(args):
     default_setup(cfg, args)
     logger.setup_logger(output=cfg.OUTPUT_DIR, distributed_rank=comm.get_rank(), name="toy")
     return cfg
+
 
 def main(args):
     cfg = setup(args)
@@ -146,6 +161,7 @@ def main(args):
     trainer = Trainer(cfg)
     trainer.resume_or_load(resume=args.resume)
     return trainer.train()
+
 
 if __name__ == "__main__":
     args = default_argument_parser().parse_args()
