@@ -10,6 +10,11 @@ from detectron2.modeling import META_ARCH_REGISTRY, build_backbone
 from .decoder import SRDetrDecoder, Neck
 from .loss import hungarianMatcher, batch_mask_loss
 
+def calc_iou(p, t):
+    mul = (p*t).sum()
+    add = (p+t).sum()
+    return mul / (add - mul + 1e-6)
+
 @META_ARCH_REGISTRY.register()
 class SRDetr(nn.Module):
     def __init__(self, cfg):
@@ -59,7 +64,7 @@ class SRDetr(nn.Module):
             stack_pred_masks = torch.cat([pred_masks[b,indices[b][0],:,:] for b in range(B)], dim=0)  ## K,H,W
             stack_tgt_masks = torch.cat([masks[b][indices[b][1]] for b in range(B)], dim=0)  ## K,H,W
             stack_iou = torch.cat([iou_scores[b,indices[b][0],0] for b in range(B)], dim=0)  ## K
-            stack_iou_gt = torch.stack([(p.sigmoid()*m).sum()/((p.sigmoid()+m).sum()+1e-6) for p, m in zip(stack_pred_masks, stack_tgt_masks)])  ## K
+            stack_iou_gt = torch.stack([calc_iou(p.sigmoid(), m) for p, m in zip(stack_pred_masks, stack_tgt_masks)])  ## K
             pos = F.binary_cross_entropy_with_logits(obj_scores, torch.ones_like(obj_scores), reduction="none")
             neg = F.binary_cross_entropy_with_logits(obj_scores, torch.zeros_like(obj_scores), reduction="none")
             mat = torch.zeros_like(obj_scores)
