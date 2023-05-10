@@ -17,7 +17,7 @@ from detectron2.utils.logger import setup_logger
 
 from predictor import VisualizationDemo
 from configs.add_custom_config import add_custom_config
-from SRNet import SRNet
+from SRNet import SRDetr
 
 # constants
 WINDOW_NAME = "COCO detections"
