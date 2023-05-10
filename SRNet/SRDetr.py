@@ -87,7 +87,7 @@ class SRDetr(nn.Module):
                 )
 
             return {
-                "mask_loss": mask_loss * 5.0,
+                "mask_loss": mask_loss * 10.0,
                 "obj_loss": obj_loss * 2.0,
                 "iou_loss": iou_loss * 2.0
             }

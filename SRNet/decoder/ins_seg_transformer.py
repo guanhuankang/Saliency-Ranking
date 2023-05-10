@@ -23,13 +23,18 @@ class InstanceSegBlock(nn.Module):
         self.dropout3 = nn.Dropout(p=dropout_ffn)
         self.norm3 = nn.LayerNorm(embed_dim)
 
+        self.z2q = Attention(embedding_dim=embed_dim, num_heads=num_heads, downsample_rate=1)
+        self.dropout4 = nn.Dropout(p=dropout_attn)
+        self.norm4 = nn.LayerNorm(embed_dim)
+
         init_weights_(self)
 
     def forward(self, q, z, qpe, zpe):
         q = self.norm1(q + self.dropout1(self.q2z(q=q + qpe, k=z + zpe, v=z)))
         q = self.norm2(q + self.dropout2(self.self_attn(q=q + qpe, k=q + qpe, v=q)))
         q = self.norm3(q + self.dropout3(self.mlp(q)))
-        return q
+        z = self.norm4(z + self.dropout4(self.z2q(q=z + zpe, k=q+qpe, v=q)))
+        return q, z
 
 
 class InstanceSegTransformer(nn.Module):
@@ -126,6 +131,6 @@ class InstanceSegTransformer(nn.Module):
 
         ## feed to layers
         for layer in self.layers:
-            q = layer(q=q, z=z, qpe=qpe, zpe=zpe)
+            q, z = layer(q=q, z=z, qpe=qpe, zpe=zpe)
 
         return q, z, qpe, zpe
