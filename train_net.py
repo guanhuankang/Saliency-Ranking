@@ -34,6 +34,8 @@ class Trainer(DefaultTrainer):
         defaults = {}
         defaults["lr"] = cfg.SOLVER.BASE_LR
         defaults["weight_decay"] = cfg.SOLVER.WEIGHT_DECAY
+        num_iters_to_step = int(max(cfg.SOLVER.IMS_PER_BATCH / cfg.SOLVER.IMS_PER_GPU * cfg.SOLVER.NUM_GPUS, 1))
+        print(f"NUM_ITERS_TO_STEP: {num_iters_to_step}", flush=True)
 
         norm_module_types = (
             torch.nn.BatchNorm1d,
@@ -87,7 +89,7 @@ class Trainer(DefaultTrainer):
                 def __init__(self, params, defaults):
                     super().__init__(params, defaults)
                     self.cur_iter = 0
-                    self.exp_iter = 16
+                    self.exp_iter = num_iters_to_step
 
                 def step(self, closure=None):
                     all_params = itertools.chain(*[x["params"] for x in self.param_groups])
@@ -130,7 +132,7 @@ def setup(args):
     Create configs and perform basic setups.
     """
     cfg = get_cfg()
-    add_custom_config(cfg)
+    add_custom_config(cfg, args)
     cfg.merge_from_file(args.config_file)
     cfg.merge_from_list(args.opts)
     cfg.freeze()
