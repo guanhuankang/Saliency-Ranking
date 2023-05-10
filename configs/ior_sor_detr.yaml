@@ -25,7 +25,7 @@ MODEL:
             NUM_TOKENS: 20
             NUM_BLOCKS: 2
         INSTANCE_SEG:
-            NUM_QUERIES: 20
+            NUM_QUERIES: 50
             NUM_BLOCKS: 4
         ADDIOR:
             NUM_BLOCKS: 4
