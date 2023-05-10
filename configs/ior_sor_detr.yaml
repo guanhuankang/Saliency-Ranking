@@ -91,4 +91,5 @@ TEST:
         NUM_ITER: 200
     AUG:
         ENABLED: false
+    UPPER_BOUND: false
 VERSION: 2

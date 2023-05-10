@@ -67,6 +67,7 @@ def add_custom_config(cfg):
     
     cfg.TEST.AUG = CN()
     cfg.TEST.AUG.ENABLED = False
+    cfg.TEST.UPPER_BOUND = False
     cfg.TEST.UTMOST_OBJECTS = 20
     cfg.TEST.METRICS_OF_INTEREST = ["mae"]
     cfg.TEST.THRESHOLD = 0.5
