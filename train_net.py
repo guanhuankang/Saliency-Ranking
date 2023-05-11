@@ -87,20 +87,29 @@ class Trainer(DefaultTrainer):
                 def __init__(self, params, defaults):
                     super().__init__(params, defaults)
                     self.cur_iter = 0
-                    self.exp_iter = cfg.SOLVER.ITERS_PER_STEP
+                    self.tar_iter = cfg.SOLVER.ITERS_PER_STEP
                     print(f"NUM_ITERS_TO_STEP: {cfg.SOLVER.ITERS_PER_STEP}", flush=True)
 
+                @property
+                def enough_iters_to_update(self):
+                    self.cur_iter += 1
+                    if self.cur_iter >= self.tar_iter:
+                        self.cur_iter = 0
+                        return True
+                    return False
+
                 def step(self, closure=None):
-                    all_params = itertools.chain(*[x["params"] for x in self.param_groups])
-                    torch.nn.utils.clip_grad_norm_(all_params, clip_norm_val)
-                    super().step(closure=closure)
+                    if self.enough_iters_to_update:
+                        all_params = itertools.chain(*[x["params"] for x in self.param_groups])
+                        torch.nn.utils.clip_grad_norm_(all_params, clip_norm_val)
+                        super().step(closure=closure)
+                    torch.cuda.empty_cache()
 
                 def zero_grad(self, set_to_none: bool = True):
-                    self.cur_iter += 1
-                    if self.cur_iter >= self.exp_iter:
-                        self.cur_iter = 0
+                    if self.cur_iter <= 0:  ## Every beginning of accumulation, do zero_grad
                         super().zero_grad(set_to_none)
                     torch.cuda.empty_cache()
+
             return FullModelGradientClippingOptimizer if enable else optim
 
         optimizer_type = cfg.SOLVER.OPTIMIZER

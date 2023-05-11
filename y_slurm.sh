@@ -11,7 +11,7 @@
 
 date
 echo PID:$$
-cd /home/grads/huankguan2/projects/saliencyranking/codebase/apps/instance_seg
+cd /home/huankguan2/saliencyranking/codebase/apps/instance_seg
 pwd
 nvidia-smi
 
