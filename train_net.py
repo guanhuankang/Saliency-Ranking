@@ -1,4 +1,4 @@
-import torch, copy, os
+import torch, copy
 import itertools
 
 from detectron2.engine import (
@@ -82,8 +82,6 @@ class Trainer(DefaultTrainer):
                 and cfg.SOLVER.CLIP_GRADIENTS.CLIP_TYPE == "full_model"
                 and clip_norm_val > 0.0
             )
-            cmd = os.path.join(cfg.OUTPUT_DIR, "command")
-            os.makedirs(cmd, exist_ok=True)
 
             class FullModelGradientClippingOptimizer(optim):
                 def __init__(self, params, defaults):
@@ -92,20 +90,11 @@ class Trainer(DefaultTrainer):
                     self.tar_iter = cfg.SOLVER.ITERS_PER_STEP
                     print(f"NUM_ITERS_TO_STEP: {cfg.SOLVER.ITERS_PER_STEP}", flush=True)
 
-                def checkExit(self):
-                    cmd_lst = os.listdir(cmd)
-                    quit_cmd = "quit"
-                    if quit_cmd in cmd_lst:
-                        print("Quit according to command [{} in {}]".format(quit_cmd, cmd_lst), flush=True)
-                        os.remove(os.path.join(cmd, quit_cmd))
-                        exit(0)
-
                 @property
                 def enough_iters_to_update(self):
                     self.cur_iter += 1
                     if self.cur_iter >= self.tar_iter:
                         self.cur_iter = 0
-                        self.checkExit()
                         return True
                     return False
 
