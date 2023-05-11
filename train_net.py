@@ -98,9 +98,17 @@ class Trainer(DefaultTrainer):
                         return True
                     return False
 
+                def grad_mul_(self, parameters, coef=1.0):
+                    if isinstance(parameters, torch.Tensor):
+                        parameters = [parameters]
+                    coef = float(coef)
+                    for p in filter(lambda p: p.grad is not None, parameters):
+                        p.grad.detach().mul_(coef)
+
                 def step(self, closure=None):
                     if self.enough_iters_to_update:
                         all_params = itertools.chain(*[x["params"] for x in self.param_groups])
+                        self.grad_mul_(all_params, coef=1.0/self.tar_iter)
                         torch.nn.utils.clip_grad_norm_(all_params, clip_norm_val)
                         super().step(closure=closure)
                     torch.cuda.empty_cache()
