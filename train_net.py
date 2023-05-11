@@ -1,4 +1,4 @@
-import torch, copy
+import torch, copy, os
 import itertools
 
 from detectron2.engine import (
@@ -86,17 +86,19 @@ class Trainer(DefaultTrainer):
             class FullModelGradientClippingOptimizer(optim):
                 def __init__(self, params, defaults):
                     super().__init__(params, defaults)
-                    self.cur_iter = 0
-                    self.tar_iter = cfg.SOLVER.ITERS_PER_STEP
+                    self.count_iters = 0
+                    self.iters_per_step = cfg.SOLVER.ITERS_PER_STEP
                     print(f"NUM_ITERS_TO_STEP: {cfg.SOLVER.ITERS_PER_STEP}", flush=True)
+                    self.cmd = os.path.join(cfg.OUTPUT_DIR, "command")
+                    os.makedirs(self.cmd, exist_ok=True)
 
-                @property
-                def enough_iters_to_update(self):
-                    self.cur_iter += 1
-                    if self.cur_iter >= self.tar_iter:
-                        self.cur_iter = 0
-                        return True
-                    return False
+                def exitCommand(self):
+                    quit_cmd = "quit"
+                    cmd_lst = os.listdir(self.cmd)
+                    if quit_cmd in cmd_lst:
+                        os.remove(os.path.join(self.cmd, quit_cmd))
+                        print("Exit Command", cmd_lst)
+                        exit(0)
 
                 def grad_mul_(self, parameters, coef=1.0):
                     if isinstance(parameters, torch.Tensor):
@@ -106,17 +108,19 @@ class Trainer(DefaultTrainer):
                         p.grad.detach().mul_(coef)
 
                 def step(self, closure=None):
-                    if self.enough_iters_to_update:
+                    if self.count_iters >= self.iters_per_step:
                         all_params = itertools.chain(*[x["params"] for x in self.param_groups])
-                        self.grad_mul_(all_params, coef=1.0/self.tar_iter)
+                        self.grad_mul_(all_params, coef=1.0/self.count_iters)
                         torch.nn.utils.clip_grad_norm_(all_params, clip_norm_val)
                         super().step(closure=closure)
-                    torch.cuda.empty_cache()
 
                 def zero_grad(self, set_to_none: bool = True):
-                    if self.cur_iter <= 0:  ## Every beginning of accumulation, do zero_grad
+                    if self.count_iters >= self.iters_per_step:
                         super().zero_grad(set_to_none)
-                    torch.cuda.empty_cache()
+                        self.count_iters = 0
+                        self.exitCommand()
+                    ## loss.backward
+                    self.count_iters += 1
 
             return FullModelGradientClippingOptimizer if enable else optim
 

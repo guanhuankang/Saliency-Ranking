@@ -54,17 +54,6 @@ class SOREvaluator(DatasetEvaluator):
         self.image_names = []
         self.upper_bound = UpperBoundMatcher()
 
-    def exitCondition(self):
-        print("Evaluation Almost done, check exiting condition (PID{})".format(os.getpid()), flush=True)
-        cmd = os.path.join(self.cfg.OUTPUT_DIR, "command")
-        cond = False
-        if os.path.exists(cmd):
-            with open(cmd, "r") as f:
-                for line in f.readlines():
-                    if (str(os.getpid()) in line) or ("exit" in line) or ("quit" in line):
-                        cond = True
-        return cond
-
     def reset(self):
         self.image_names = []
         self.results = []
@@ -101,8 +90,4 @@ class SOREvaluator(DatasetEvaluator):
                     )
     
     def evaluate(self):
-        report = self.metrics.aggregate(self.results)
-        if self.exitCondition():
-            print(report)
-            exit(0)
-        return report
+        return self.metrics.aggregate(self.results)
