@@ -1,0 +1,2 @@
+nvidia-smi
+python train_net.py --config-file configs/ior_sor_detr.yaml SOLVER.IMS_PER_GPU 1 INPUT.FT_SIZE_TRAIN 1024 INPUT.FT_SIZE_TEST 1024 TEST.EVAL_PERIOD 5000 DATASETS.ROOT /home/luke/dataset/SOR_RANK/coco_sor MODEL.WEIGHTS pretrained/swin_base_patch4_window12_384_22k.pth SOLVER.STEPS [180000,190000] SOLVER.MAX_ITER 200000 OUTPUT_DIR output/instance-seg
