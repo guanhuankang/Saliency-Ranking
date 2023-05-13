@@ -1,4 +1,4 @@
-import torch, copy
+import torch, copy, os
 import itertools
 
 from detectron2.engine import (
@@ -50,8 +50,8 @@ class Trainer(DefaultTrainer):
             torch.nn.LocalResponseNorm,
         )
 
-        params: List[Dict[str, Any]] = []
-        memo: Set[torch.nn.parameter.Parameter] = set()
+        params = []
+        memo = set()
         for module_name, module in model.named_modules():
             for module_param_name, value in module.named_parameters(recurse=False):
                 if not value.requires_grad:
@@ -87,20 +87,41 @@ class Trainer(DefaultTrainer):
             class FullModelGradientClippingOptimizer(optim):
                 def __init__(self, params, defaults):
                     super().__init__(params, defaults)
-                    self.cur_iter = 0
-                    self.exp_iter = 16
+                    self.count_iters = 0
+                    self.iters_per_step = cfg.SOLVER.ITERS_PER_STEP
+                    print(f"NUM_ITERS_TO_STEP: {cfg.SOLVER.ITERS_PER_STEP}", flush=True)
+                    self.cmd = os.path.join(cfg.OUTPUT_DIR, "command")
+                    os.makedirs(self.cmd, exist_ok=True)
+
+                def exitCommand(self):
+                    quit_cmd = "quit"
+                    cmd_lst = os.listdir(self.cmd)
+                    if quit_cmd in cmd_lst:
+                        os.remove(os.path.join(self.cmd, quit_cmd))
+                        print("Exit Command", cmd_lst)
+                        exit(0)
+
+                def grad_mul_(self, parameters, coef=1.0):
+                    if isinstance(parameters, torch.Tensor):
+                        parameters = [parameters]
+                    coef = float(coef)
+                    for p in filter(lambda p: p.grad is not None, parameters):
+                        p.grad.detach().mul_(coef)
 
                 def step(self, closure=None):
-                    all_params = itertools.chain(*[x["params"] for x in self.param_groups])
-                    torch.nn.utils.clip_grad_norm_(all_params, clip_norm_val)
-                    super().step(closure=closure)
+                    if self.count_iters >= self.iters_per_step:
+                        all_params = itertools.chain(*[x["params"] for x in self.param_groups])
+                        self.grad_mul_(all_params, coef=1.0 / self.count_iters)
+                        torch.nn.utils.clip_grad_norm_(all_params, clip_norm_val)
+                        super().step(closure=closure)
 
                 def zero_grad(self, set_to_none: bool = True):
-                    self.cur_iter += 1
-                    if self.cur_iter >= self.exp_iter:
-                        self.cur_iter = 0
+                    if self.count_iters >= self.iters_per_step:
                         super().zero_grad(set_to_none)
-                    torch.cuda.empty_cache()
+                        self.count_iters = 0
+                        self.exitCommand()
+                    ## loss.backward
+                    self.count_iters += 1
 
             return FullModelGradientClippingOptimizer if enable else optim
 
@@ -133,10 +154,16 @@ def setup(args):
     Create configs and perform basic setups.
     """
     cfg = get_cfg()
-    add_custom_config(cfg)
+    add_custom_config(cfg, args)
     cfg.merge_from_file(args.config_file)
     cfg.merge_from_list(args.opts)
+
+    ## Adjust IMS_PER_BATCH
+    cfg.SOLVER.ITERS_PER_STEP = int(max(cfg.SOLVER.IMS_PER_BATCH / (cfg.SOLVER.IMS_PER_GPU * cfg.SOLVER.NUM_GPUS), 1))
+    cfg.SOLVER.IMS_PER_BATCH = cfg.SOLVER.IMS_PER_GPU * cfg.SOLVER.NUM_GPUS
+
     cfg.freeze()
+
     default_setup(cfg, args)
     logger.setup_logger(output=cfg.OUTPUT_DIR, distributed_rank=comm.get_rank(), name="toy")
     return cfg
