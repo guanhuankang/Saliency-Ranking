@@ -22,15 +22,15 @@ MODEL:
         EMBED_DIM: 256
         IOR_ENCODER:
             NUM_IOR_POINTS: 256
-            NUM_TOKENS: 50
+            NUM_TOKENS: 20
             NUM_BLOCKS: 2
         INSTANCE_SEG:
-            NUM_QUERIES: 50
-            NUM_BLOCKS: 4
+            NUM_QUERIES: 80
+            NUM_BLOCKS: 6
         ADDIOR:
             NUM_BLOCKS: 4
         MASK_DECODER:
-            NUM_BLOCKS: 4
+            NUM_BLOCKS: 2
         CROSSATTN:
             NUM_HEADS: 8
             DROPOUT: 0.0
@@ -51,7 +51,7 @@ SOLVER:
     AMP:
         ENABLED: true
     BACKBONE_MULTIPLIER: 0.1
-    BASE_LR: 0.00001
+    BASE_LR: 0.0001
     CHECKPOINT_PERIOD: 5000
     CLIP_GRADIENTS:
         CLIP_TYPE: full_model
@@ -60,15 +60,16 @@ SOLVER:
         NORM_TYPE: 2.0
     GAMMA: 0.1
     IMS_PER_BATCH: 16
+    IMS_PER_GPU: 1
     LR_SCHEDULER_NAME: WarmupMultiStepLR
     MOMENTUM: 0.9
     OPTIMIZER: ADAMW
-    STEPS: (95000, 98000)
-    MAX_ITER: 100000
+    STEPS: (280000, 290000)
+    MAX_ITER: 300000
     REFERENCE_WORLD_SIZE: 0
     WARMUP_FACTOR: 1.0
     WARMUP_ITERS: 10
-    WARMUP_METHOD: linear
+    WEIGHT_DECAY: 0.05
 INPUT:
     FT_SIZE_TRAIN: 1024
     FT_SIZE_TEST: 1024
@@ -77,11 +78,8 @@ INPUT:
     MAX_SIZE_TEST: 1333
     FORMAT: "RGB"
 OUTPUT_DIR: "output/"
-OUTPUT_DEBUG: "output/debug/"
-OUTPUT_EVAL: "output/eval"
-EVAL_SAVE: false
 TEST:
-    EVAL_PERIOD: 5000
+    EVAL_PERIOD: 8000
     UTMOST_OBJECTS: 5
     METRICS_OF_INTEREST: ["mae", "acc", "fbeta", "iou", "sa_sor", "sor", "ap", "ar", "top1"]
     THRESHOLD: 0.5
@@ -91,4 +89,6 @@ TEST:
         NUM_ITER: 200
     AUG:
         ENABLED: false
+    UPPER_BOUND: true
+    EVAL_SAVE: false
 VERSION: 2
