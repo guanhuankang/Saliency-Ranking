@@ -1,6 +1,6 @@
 from detectron2.config import CfgNode as CN
 
-def add_custom_config(cfg):
+def add_custom_config(cfg, args):
     cfg.MODEL.WEIGHTS = ""
 
     cfg.MODEL.BACKBONE = CN()
@@ -64,16 +64,17 @@ def add_custom_config(cfg):
     cfg.SOLVER.BACKBONE_MULTIPLIER = 0.1
     cfg.SOLVER.OPTIMIZER = "ADAMW"
     cfg.SOLVER.WEIGHT_DECAY_EMBED = 0.0
-    
+    cfg.SOLVER.IMS_PER_GPU = 1
+    cfg.SOLVER.ITERS_PER_STEP = 1
+    cfg.SOLVER.NUM_GPUS = args.num_gpus
+
     cfg.TEST.AUG = CN()
     cfg.TEST.AUG.ENABLED = False
+    cfg.TEST.UPPER_BOUND = False
+    cfg.TEST.EVAL_SAVE = False
     cfg.TEST.UTMOST_OBJECTS = 20
     cfg.TEST.METRICS_OF_INTEREST = ["mae"]
     cfg.TEST.THRESHOLD = 0.5
 
     cfg.INPUT.FT_SIZE_TRAIN = 800
     cfg.INPUT.FT_SIZE_TEST = 800
-
-    cfg.OUTPUT_DEBUG = "output/debug/"
-    cfg.OUTPUT_EVAL = "output/eval"
-    cfg.EVAL_SAVE = False
