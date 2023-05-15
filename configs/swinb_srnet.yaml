@@ -28,7 +28,7 @@ MODEL:
         DROPOUT_FFN: 0.0
         NUM_QUERIES: 100
         NUM_BLOCKS: 3
-        FEATURE_KEYS: [ "res5","res4","res3" ]
+        FEATURE_KEYS: ["res5","res4","res3"]
     HEAD:
         EMBED_DIM: 256
         NUM_HEADS: 8
@@ -56,7 +56,7 @@ SOLVER:
         NORM_TYPE: 2.0
     GAMMA: 0.1
     IMS_PER_BATCH: 32
-    IMS_PER_GPU: 1
+    IMS_PER_GPU: 8
     LR_SCHEDULER_NAME: WarmupMultiStepLR
     MOMENTUM: 0.9
     OPTIMIZER: ADAMW

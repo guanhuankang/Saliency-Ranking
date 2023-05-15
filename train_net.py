@@ -194,7 +194,7 @@ def hardSetArgs(args, key, value):
 if __name__ == "__main__":
     args = default_argument_parser().parse_args()
     args.num_gpus = torch.cuda.device_count()
-    timeout = int(readCfgFromArgs(args, "SOLVER.TIMEOUT", 5))
+    timeout = int(readCfgFromArgs(args, "SOLVER.TIMEOUT", 2))
     hardSetArgs(args, "SOLVER.TIMEOUT", timeout)
     print("Available GPUs:", args.num_gpus, "Timeout:", timeout)
     print("Command Line Args:", args)

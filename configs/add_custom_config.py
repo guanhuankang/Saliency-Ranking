@@ -57,7 +57,7 @@ def add_custom_config(cfg, args):
     cfg.SOLVER.IMS_PER_GPU = 1
     cfg.SOLVER.ITERS_PER_STEP = 1
     cfg.SOLVER.NUM_GPUS = args.num_gpus
-    cfg.SOLVER.TIMEOUT = 5
+    cfg.SOLVER.TIMEOUT = 2
 
     cfg.TEST.AUG = CN()
     cfg.TEST.AUG.ENABLED = False
