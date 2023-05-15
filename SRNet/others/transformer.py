@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 from detectron2.config import configurable
-from .utils import init_weights_
+from SRNet.component.utils import init_weights_
 
 class MultiHeadAttn(nn.Module):
     def __init__(self, embed_dim=128, num_heads=8, **argw):

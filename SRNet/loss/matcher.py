@@ -1,11 +1,10 @@
 import scipy
 import torch
-import torch.nn.functional as F
-from typing import List
+from typing import Dict, List
 from .loss import batch_mask_loss
 
 @torch.no_grad()
-def hungarianMatcher(preds: List, targets: List):
+def hungarianMatcher(preds: Dict, targets: List) -> List:
     """
         Params:
             preds: a dict:
@@ -14,9 +13,7 @@ def hungarianMatcher(preds: List, targets: List):
             targets: list of targets with length=batch_size, each is a torch.Tensor
                 in shape N,H,W (binary map indicates the foreground/background)
         Returns:
-            list of tuples: list length = batch_size, each is a pair tuple:
-                (row_indices, col_indices), len(row_indices) = min(nq, N),
-                where nq -> row, N -> col
+            list of tuples: each tuple indicates the mapping indices between preds and targets
     """
     B = len(targets)
     indices = []

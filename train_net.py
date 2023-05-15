@@ -19,7 +19,7 @@ from detectron2.data import build_detection_train_loader, build_detection_test_l
 from configs.add_custom_config import add_custom_config
 from dataset import register_sor_dataset, sor_dataset_mapper_train, sor_dataset_mapper_test
 from evaluation import SOREvaluator
-from SRNet import SRDetr
+from SRNet import *
 
 
 class Trainer(DefaultTrainer):

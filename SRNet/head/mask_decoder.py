@@ -5,7 +5,7 @@ from typing import Tuple
 from detectron2.config import configurable
 
 from ..component import MLPBlock, Attention
-from ..component import PositionEmbeddingRandom, init_weights_
+from ..component import init_weights_
 
 class MaskDecoderLayer(nn.Module):
     def __init__(self, embed_dim=256, num_heads=8, hidden_dim=1024, dropout_attn=0.0, dropout_ffn=0.0):
@@ -50,7 +50,7 @@ class MaskDecoderLayer(nn.Module):
 
 class MaskDecoder(nn.Module):
     @configurable
-    def __init__(self, embed_dim=256, num_heads=8, hidden_dim=1024, dropout_attn=0.0, dropout_ffn=0.0, num_blocks=4):
+    def __init__(self, embed_dim=256, num_heads=8, hidden_dim=1024, dropout_attn=0.0, dropout_ffn=0.0, num_blocks=2):
         super().__init__()
         self.layers = nn.ModuleList([
             MaskDecoderLayer(embed_dim=embed_dim, num_heads=num_heads, hidden_dim=hidden_dim, dropout_attn=dropout_attn, dropout_ffn=dropout_ffn)
@@ -64,22 +64,22 @@ class MaskDecoder(nn.Module):
         self.mask_mlp = MLPBlock(embedding_dim=embed_dim, mlp_dim=hidden_dim)
         self.iou_head = nn.Linear(embed_dim, 1)
         self.obj_head = nn.Linear(embed_dim, 1)
-        self.conv_trans_x4 = nn.Sequential(
-            nn.ConvTranspose2d(embed_dim, embed_dim, kernel_size=3, padding=1, output_padding=1, stride=2, dilation=1),
-            nn.ConvTranspose2d(embed_dim, embed_dim, kernel_size=3, padding=1, output_padding=1, stride=2, dilation=1)
-        )
 
-        init_weights_(self)
+        init_weights_(self.query_to_feat_attn)
+        init_weights_(self.norm)
+        init_weights_(self.mask_mlp)
+        init_weights_(self.iou_head)
+        init_weights_(self.obj_head)
 
     @classmethod
     def from_config(cls, cfg):
         return {
-            "embed_dim": cfg.MODEL.IOR_DECODER.EMBED_DIM,
-            "num_heads": cfg.MODEL.IOR_DECODER.CROSSATTN.NUM_HEADS,
-            "dropout_attn": cfg.MODEL.IOR_DECODER.CROSSATTN.DROPOUT,
-            "hidden_dim": cfg.MODEL.IOR_DECODER.FFN.HIDDEN_DIM,
-            "dropout_ffn": cfg.MODEL.IOR_DECODER.FFN.DROPOUT,
-            "num_blocks": cfg.MODEL.IOR_DECODER.MASK_DECODER.NUM_BLOCKS
+            "embed_dim": cfg.MODEL.HEAD.EMBED_DIM,
+            "num_heads": cfg.MODEL.HEAD.NUM_HEADS,
+            "dropout_attn": cfg.MODEL.HEAD.DROPOUT_ATTN,
+            "hidden_dim": cfg.MODEL.HEAD.HIDDEN_DIM,
+            "dropout_ffn": cfg.MODEL.HEAD.DROPOUT_FFN,
+            "num_blocks": cfg.MODEL.HEAD.NUM_BLOCKS
         }
 
     def forward(self, query, feat, q_pe, z_pe):
@@ -92,19 +92,18 @@ class MaskDecoder(nn.Module):
             z_pe: B, HW, C
 
         Returns: logit
-            masks: B, nq, 4H, 4W
-            iou_scores: B, nq, 1
+            masks: B, nq, H, W logit
+            iou_scores: B, nq, 1 logit
+            obj_scores: B, nq, 1 logit
         '''
         B, C, H, W = feat.shape
-        z = feat.flatten(2).transpose(-1, -2) ## B, HW, C
+        z = feat.flatten(2).transpose(-1, -2)  ## B, HW, C
         for layer in self.layers:
             query, z = layer(query, z, q_pe, z_pe)
+        query = self.norm(query+self.dropout(self.query_to_feat_attn(q=query+q_pe, k=z+z_pe, v=z)))  ## B, nq, C
 
-        query = self.norm(query+self.dropout(self.query_to_feat_attn(q=query+q_pe, k=z+z_pe, v=z))) ## B, nq, C
-        feat = z.reshape(B, H, W, C).permute(0, 3, 1, 2)  ## B, C, H, W
-        feat = self.conv_trans_x4(feat) ## B, C, 4H, 4W
+        masks = (self.mask_mlp(query) @ z.transpose(-1, -2)).reshape(B, -1, H, W)  ## B, C, H, W
+        iou_socres = self.iou_head(query)  ## B, nq, 1
+        obj_scores = self.obj_head(query)  ## B, nq, 1
 
-        iou_socres = self.iou_head(query) ## B, nq, 1
-        obj_scores = self.obj_head(query)
-        masks = torch.matmul(self.mask_mlp(query), feat.flatten(2)).reshape(B, -1, 4*H, 4*W) ## B, nq, H, W
         return masks, iou_socres, obj_scores

@@ -1,47 +1,27 @@
 import os, cv2
 import numpy as np
-from PIL import Image, ImageDraw
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
 from detectron2.modeling import META_ARCH_REGISTRY, build_backbone
-from .decoder import SRDetrDecoder, Neck
-from .loss import hungarianMatcher, batch_mask_loss
 
-def calc_iou(p, t):
-    mul = (p*t).sum()
-    add = (p+t).sum()
-    return mul / (add - mul + 1e-6)
+from .neck import FrcPN
+from .decoder import Mask2FormerDecoder
+from .loss import hungarianMatcher, batch_mask_loss
+from .utils import calc_iou, debugDump
+
 
 @META_ARCH_REGISTRY.register()
-class SRDetr(nn.Module):
+class FovealPeripheralNet(nn.Module):
     def __init__(self, cfg):
         super().__init__()
         self.cfg = cfg
         self.backbone = build_backbone(cfg)
-        self.neck = Neck(cfg)
-        self.decoder = SRDetrDecoder(cfg)
+        self.neck = FrcPN(cfg)
+        self.transformer_decoder = Mask2FormerDecoder(cfg)
 
         self.register_buffer("pixel_mean", torch.tensor(cfg.MODEL.PIXEL_MEAN).reshape(1, -1, 1, 1), False)
         self.register_buffer("pixel_std", torch.tensor(cfg.MODEL.PIXEL_STD).reshape(1, 3, 1, 1), False)
-
-    def debugDump(self, image_name, texts, lsts, size=(256, 256)):
-        """
-        Args:
-            texts: list of text
-            lsts: list of list of image H, W
-        """
-        os.makedirs(os.path.join(self.cfg.OUTPUT_DIR, "debug"), exist_ok=True)
-        outs = []
-        for text, lst in zip(texts, lsts):
-            lst = [cv2.resize((x.numpy()*255).astype(np.uint8), size, interpolation=cv2.INTER_LINEAR) for x in lst]
-            out = Image.fromarray(np.concatenate(lst, axis=1))
-            ImageDraw.Draw(out).text((0, 0), str(text), fill="red")
-            outs.append(np.array(out))
-        out = Image.fromarray(np.concatenate(outs, axis=0))
-        out.save(os.path.join(self.cfg.OUTPUT_DIR, "debug", image_name+".png"))
 
     @property
     def device(self):
@@ -79,11 +59,12 @@ class SRDetr(nn.Module):
                 ioulst = stack_iou[0:5].detach().float().cpu().sigmoid().tolist()
                 gtlst = list(stack_tgt_masks[0:5].detach().float().cpu())
                 iougt = stack_iou_gt[0:5].detach().float().cpu().tolist()
-                self.debugDump(
+                debugDump(
+                    output_dir=self.cfg.OUTPUT_DIR,
                     image_name="latest",
-                    texts = [ioulst, iougt],
-                    lsts = [plst, gtlst],
-                    size = (200, 200)
+                    texts=[ioulst, iougt],
+                    lsts=[plst, gtlst],
+                    size=(200, 200)
                 )
 
             return {
