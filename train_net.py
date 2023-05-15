@@ -1,5 +1,6 @@
 import torch, copy, os
 import itertools
+from datetime import timedelta
 
 from detectron2.engine import (
     DefaultTrainer,
@@ -177,12 +178,27 @@ def main(args):
     trainer.resume_or_load(resume=args.resume)
     return trainer.train()
 
+def readCfgFromArgs(args, key, default=None):
+    args_dict = dict((args.opts[i], args.opts[i + 1]) for i in range(len(args.opts)) if (int(i) & 1) == 0)
+    return args_dict.get(key, default)
+
+def hardSetArgs(args, key, value):
+    args_dict = dict((args.opts[i], args.opts[i + 1]) for i in range(len(args.opts)) if (int(i) & 1) == 0)
+    args_dict[key] = value  ## hardSet
+    opts = []
+    for k, v in args_dict.items():
+        opts += [k, v]
+    args.opts = opts
+    return args
 
 if __name__ == "__main__":
     args = default_argument_parser().parse_args()
     args.num_gpus = torch.cuda.device_count()
-    print("Available GPUs:", args.num_gpus)
+    timeout = int(readCfgFromArgs(args, "SOLVER.TIMEOUT", 5))
+    hardSetArgs(args, "SOLVER.TIMEOUT", timeout)
+    print("Available GPUs:", args.num_gpus, "Timeout:", timeout)
     print("Command Line Args:", args)
+
     launch(
         main,
         args.num_gpus,
@@ -190,4 +206,5 @@ if __name__ == "__main__":
         machine_rank=args.machine_rank,
         dist_url=args.dist_url,
         args=(args,),
+        timeout=timedelta(minutes=timeout)
     )
