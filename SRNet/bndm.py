@@ -91,7 +91,6 @@ class BNDM(nn.Module):
             for b in range(len(batch_dict)):
                 H, W = batch_dict[b]["height"], batch_dict[b]["width"]
                 image_name = batch_dict[b].get("image_name") or "unknown_{}".format(b)
-                print(torch.where(obj_scores[b] > .0))
                 is_obj = torch.where(obj_scores[b] > .0)[0]
                 masks = F.interpolate(pred_masks[b, is_obj].float().unsqueeze(0), size=(H, W), mode="bilinear").sigmoid().cpu()  ## 1,k,H,W
                 scores = iou_scores[b, is_obj, 0].sigmoid().float().cpu()  ## k
