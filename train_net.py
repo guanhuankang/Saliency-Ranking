@@ -94,12 +94,13 @@ class Trainer(DefaultTrainer):
                     os.makedirs(self.cmd, exist_ok=True)
 
                 def exitCommand(self):
-                    quit_cmd = "quit"
-                    cmd_lst = os.listdir(self.cmd)
-                    if quit_cmd in cmd_lst:
-                        os.remove(os.path.join(self.cmd, quit_cmd))
-                        print("Exit Command", cmd_lst)
-                        exit(0)
+                    if comm.is_main_process():
+                        quit_cmd = "quit"
+                        cmd_lst = os.listdir(self.cmd)
+                        if quit_cmd in cmd_lst:
+                            os.remove(os.path.join(self.cmd, quit_cmd))
+                            print("Exit Command", cmd_lst)
+                            exit(0)
 
                 def grad_mul_(self, parameters, coef=1.0):
                     if isinstance(parameters, torch.Tensor):
