@@ -18,8 +18,8 @@ MODEL:
         OUT_FEATURES: ["res2", "res3", "res4", "res5"]
     NECK:
         DIM: 256
-        NUM_FEATURES: (128,256,512,1024)
-        FEATURE_KEYS: ["res2", "res3", "res4", "res5"]
+        NUM_FEATURES: (256,512,1024)
+        FEATURE_KEYS: ["res3", "res4", "res5"]
     DECODER:
         EMBED_DIM: 256
         NUM_HEADS: 8
@@ -55,13 +55,13 @@ SOLVER:
         ENABLED: true
         NORM_TYPE: 2.0
     GAMMA: 0.1
-    IMS_PER_BATCH: 16
+    IMS_PER_BATCH: 32
     IMS_PER_GPU: 1
     LR_SCHEDULER_NAME: WarmupMultiStepLR
     MOMENTUM: 0.9
     OPTIMIZER: ADAMW
-    STEPS: (280000, 290000)
-    MAX_ITER: 300000
+    STEPS: (28000, 29000)
+    MAX_ITER: 30000
     REFERENCE_WORLD_SIZE: 0
     WARMUP_FACTOR: 1.0
     WARMUP_ITERS: 10
@@ -75,8 +75,7 @@ INPUT:
     FORMAT: "RGB"
 OUTPUT_DIR: "output/"
 TEST:
-    EVAL_PERIOD: 8000
-    UTMOST_OBJECTS: 5
+    EVAL_PERIOD: 5000
     METRICS_OF_INTEREST: ["mae", "acc", "fbeta", "iou", "sa_sor", "sor", "ap", "ar", "top1"]
     THRESHOLD: 0.5
     EXPECTED_RESULTS: []

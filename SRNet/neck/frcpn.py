@@ -95,5 +95,5 @@ class FrcPN(nn.Module):
         feats = [layer(feats[k]) for layer, k in zip(self.lateral_conv, self.feat_keys)][::-1]  ## high->low after lateral_conv
         for i, frc in enumerate(self.frcs):
             feats[i+1] = frc(high_feat=feats[i], low_feat=feats[i+1])
-        feats = dict((k, v) for k, v in zip(self.feat_keys, feats))
+        feats = dict((k, v) for k, v in zip(self.feat_keys, feats[::-1]))
         return feats
