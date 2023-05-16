@@ -3,7 +3,7 @@ import argparse
 import glob
 import multiprocessing as mp
 import numpy as np
-import os
+import os, sys
 import tempfile
 import time
 import warnings
@@ -15,9 +15,10 @@ from detectron2.config import get_cfg
 from detectron2.data.detection_utils import read_image
 from detectron2.utils.logger import setup_logger
 
+sys.path.append("..")
 from predictor import VisualizationDemo
 from configs.add_custom_config import add_custom_config
-from SRNet import SRDetr
+from SRNet import *
 
 # constants
 WINDOW_NAME = "COCO detections"
@@ -26,7 +27,7 @@ WINDOW_NAME = "COCO detections"
 def setup_cfg(args):
     # load config from file and command-line arguments
     cfg = get_cfg()
-    add_custom_config(cfg)
+    add_custom_config(cfg, num_gpus=1)
     # To use demo for Panoptic-DeepLab, please uncomment the following two lines.
     # from detectron2.projects.panoptic_deeplab import add_panoptic_deeplab_config  # noqa
     # add_panoptic_deeplab_config(cfg)
@@ -130,12 +131,13 @@ if __name__ == "__main__":
                 # uncomment to store each instance individully
                 image_name = path.split("/")[-1][0:-4]
                 idx = 1
-                for m,s in zip(predictions["masks"], predictions["scores"]):
-                    m = (m.detach().cpu() * 255).numpy().astype(np.uint8)
-                    Image.fromarray(m).convert("L").save(os.path.join(args.output, "{image_name}_{idx}_{score}.png".format(
+                for m,o,s in zip(predictions["masks"], predictions["obj_scores"], predictions["scores"]):
+                    m = (m * 255).numpy().astype(np.uint8)
+                    Image.fromarray(m).convert("L").save(os.path.join(args.output, "{image_name}_{idx}_{obj}_{iou}.png".format(
                         image_name=image_name,
                         idx=idx,
-                        score=round(float(s.cpu()),2)
+                        obj=round(float(o),2),
+                        iou=round(float(s),2)
                     )))
                     idx += 1
 

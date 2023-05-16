@@ -143,7 +143,7 @@ def setup(args):
     Create configs and perform basic setups.
     """
     cfg = get_cfg()
-    add_custom_config(cfg, args)
+    add_custom_config(cfg, num_gpus=args.num_gpus)
     cfg.merge_from_file(args.config_file)
     cfg.merge_from_list(args.opts)
 
@@ -193,9 +193,9 @@ def hardSetArgs(args, key, value):
 
 if __name__ == "__main__":
     args = default_argument_parser().parse_args()
-    args.num_gpus = torch.cuda.device_count()
-    timeout = int(readCfgFromArgs(args, "SOLVER.TIMEOUT", 2))
-    hardSetArgs(args, "SOLVER.TIMEOUT", timeout)
+    args.num_gpus = int(readCfgFromArgs(args, "SOLVER.NUM_GPUS", torch.cuda.device_count()))
+    timeout = int(readCfgFromArgs(args, "SOLVER.TIMEOUT", 2)); hardSetArgs(args, "SOLVER.TIMEOUT", timeout)
+
     print("Available GPUs:", args.num_gpus, "Timeout:", timeout)
     print("Command Line Args:", args)
 
