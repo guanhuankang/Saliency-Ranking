@@ -41,6 +41,10 @@ def add_custom_config(cfg, num_gpus=1):
     cfg.MODEL.DECODER.NUM_BLOCKS = 3
     cfg.MODEL.DECODER.FEATURE_KEYS = ["res5", "res4", "res3"]
 
+    cfg.MODEL.MODULES = CN()
+    cfg.MODEL.MODULES.FOVEAL_VISION = CN()
+    cfg.MODEL.MODULES.FOVEAL_VISION.PAD_SIZE = 7
+
     cfg.MODEL.HEAD = CN()
     cfg.MODEL.HEAD.EMBED_DIM = 256
     cfg.MODEL.HEAD.NUM_HEADS = 8

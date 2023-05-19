@@ -29,6 +29,9 @@ MODEL:
         NUM_QUERIES: 100
         NUM_BLOCKS: 3
         FEATURE_KEYS: ["res5","res4","res3"]
+    MODULES:
+        FOVEAL_VISION:
+            PAD_SIZE: 7
     HEAD:
         EMBED_DIM: 256
         NUM_HEADS: 8
