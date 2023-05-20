@@ -79,11 +79,11 @@ class FovealVision(nn.Module):
     def from_config(cls, cfg):
         return {
             "pad_size": cfg.MODEL.MODULES.FOVEAL_VISION.PAD_SIZE,
-            "embed_dim": cfg.MODEL.HEAD.EMBED_DIM,
-            "num_heads": cfg.MODEL.HEAD.NUM_HEADS,
-            "dropout_attn": cfg.MODEL.HEAD.DROPOUT_ATTN,
-            "hidden_dim": cfg.MODEL.HEAD.HIDDEN_DIM,
-            # "dropout_ffn": cfg.MODEL.HEAD.DROPOUT_FFN
+            "embed_dim": cfg.MODEL.COMMON.EMBED_DIM,
+            "num_heads": cfg.MODEL.COMMON.NUM_HEADS,
+            "dropout_attn": cfg.MODEL.COMMON.DROPOUT_ATTN,
+            "hidden_dim": cfg.MODEL.COMMON.HIDDEN_DIM,
+            # "dropout_ffn": cfg.MODEL.COMMON.DROPOUT_FFN
         }
 
     def getGrids(self, size):

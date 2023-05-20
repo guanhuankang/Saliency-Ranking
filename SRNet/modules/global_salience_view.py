@@ -65,12 +65,12 @@ class GlobalSalienceView(nn.Module):
     @classmethod
     def from_config(cls, cfg):
         return {
-            "embed_dim": cfg.MODEL.HEAD.EMBED_DIM,
-            "num_heads": cfg.MODEL.HEAD.NUM_HEADS,
-            "dropout_attn": cfg.MODEL.HEAD.DROPOUT_ATTN,
-            "hidden_dim": cfg.MODEL.HEAD.HIDDEN_DIM,
-            "dropout_ffn": cfg.MODEL.HEAD.DROPOUT_FFN,
-            "num_blocks": cfg.MODEL.HEAD.NUM_BLOCKS
+            "embed_dim": cfg.MODEL.COMMON.EMBED_DIM,
+            "num_heads": cfg.MODEL.COMMON.NUM_HEADS,
+            "dropout_attn": cfg.MODEL.COMMON.DROPOUT_ATTN,
+            "hidden_dim": cfg.MODEL.COMMON.HIDDEN_DIM,
+            "dropout_ffn": cfg.MODEL.COMMON.DROPOUT_FFN,
+            "num_blocks": cfg.MODEL.MODULES.GLOBAL_SALIENCE_VIEW.NUM_BLOCKS
         }
 
     def forward(self, q, z, q_pe, z_pe):

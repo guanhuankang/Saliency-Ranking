@@ -32,12 +32,17 @@ MODEL:
     MODULES:
         FOVEAL_VISION:
             PAD_SIZE: 7
-    HEAD:
+        PERIPHERAL_SELECTION:
+            NUM_BLOCKS: 3
+        GLOBAL_SALIENCE_VIEW:
+            NUM_BLOCKS: 2
+    COMMON:
         EMBED_DIM: 256
         NUM_HEADS: 8
         HIDDEN_DIM: 1024
         DROPOUT_ATTN: 0.0
         DROPOUT_FFN: 0.0
+    HEAD:
         NUM_BLOCKS: 2
     WEIGHTS: "pretrained/swin_base_patch4_window12_384_22k.pth"
 LOSS:
@@ -71,8 +76,8 @@ SOLVER:
     LR_SCHEDULER_NAME: WarmupMultiStepLR
     MOMENTUM: 0.9
     OPTIMIZER: ADAMW
-    STEPS: (48000, 49000)
-    MAX_ITER: 50000
+    STEPS: (95000, 98000)
+    MAX_ITER: 100000
     REFERENCE_WORLD_SIZE: 0
     WARMUP_FACTOR: 1.0
     WARMUP_ITERS: 10

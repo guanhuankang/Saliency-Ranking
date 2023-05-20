@@ -74,11 +74,11 @@ class MaskDecoder(nn.Module):
     @classmethod
     def from_config(cls, cfg):
         return {
-            "embed_dim": cfg.MODEL.HEAD.EMBED_DIM,
-            "num_heads": cfg.MODEL.HEAD.NUM_HEADS,
-            "dropout_attn": cfg.MODEL.HEAD.DROPOUT_ATTN,
-            "hidden_dim": cfg.MODEL.HEAD.HIDDEN_DIM,
-            "dropout_ffn": cfg.MODEL.HEAD.DROPOUT_FFN,
+            "embed_dim": cfg.MODEL.COMMON.EMBED_DIM,
+            "num_heads": cfg.MODEL.COMMON.NUM_HEADS,
+            "dropout_attn": cfg.MODEL.COMMON.DROPOUT_ATTN,
+            "hidden_dim": cfg.MODEL.COMMON.HIDDEN_DIM,
+            "dropout_ffn": cfg.MODEL.COMMON.DROPOUT_FFN,
             "num_blocks": cfg.MODEL.HEAD.NUM_BLOCKS
         }
 
