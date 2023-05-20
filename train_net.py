@@ -152,10 +152,11 @@ def setup(args):
         "GROUP4090": cfg.DATASETS.ENV.GROUP4090,
         "BURGUNDY": cfg.DATASETS.ENV.BURGUNDY,
         "HTGC": cfg.DATASETS.ENV.HTGC,
-        "GROUP3090": cfg.DATASETS.ENV.GROUP3090,
-        "DEFAULT": cfg.DATASETS.ROOT
-    }.get(os.environ.get("ENVNAME", "DEFAULT").upper(), cfg.DATASETS.ROOT)
+        "GROUP3090": cfg.DATASETS.ENV.GROUP3090
+    }.get(dict(os.environ).get("ENVNAME"), cfg.DATASETS.ROOT)
     cfg.DATASETS.ROOT = root
+    print("ROOT:", root)
+    
     cfg.MODEL.WEIGHTS = os.path.join(root, cfg.MODEL.WEIGHTS)
 
     cfg.merge_from_list(args.opts)
