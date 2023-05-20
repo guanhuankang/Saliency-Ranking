@@ -14,7 +14,7 @@ from .utils import calc_iou, debugDump, pad1d
 
 
 @META_ARCH_REGISTRY.register()
-class BNDM(nn.Module):
+class PERP(nn.Module):
     def __init__(self, cfg):
         super().__init__()
         self.cfg = cfg
@@ -58,7 +58,7 @@ class BNDM(nn.Module):
 
         q = q[oi1, oi2, :].reshape(bs, tk, -1)  ## B, tk, C
         q_pe = q_pe[oi1, oi2, :].reshape(bs, tk, -1)  ## B, tk, C
-        q, p_mask, p_iou = self.fv(q=q, z=z, q_pe=q_pe, z_pe=z_pe, size=size, get_coord_pe=self.decoder.get_coord_pe)
+        q, p_mask, p_iou = self.fv(q=q, z=z, q_pe=q_pe, z_pe=z_pe, size=size, pe_layer=self.decoder)
 
         """
         q: query_warp, B, tk, tk, C
@@ -70,6 +70,7 @@ class BNDM(nn.Module):
         """
         if self.training:
             """ Training """
+            p_mask = F.interpolate(p_mask, size=train_size, mode="bilinear")
             bi, qi, ti = hungarianMatcher(preds={"masks": p_mask, "scores": p_obj_tk}, targets=masks)
 
             """ GT
@@ -94,11 +95,13 @@ class BNDM(nn.Module):
 
             ## stack p_mask,p_iou GT
             gt_mask = torch.stack([pad1d(x, 0, n_max) for x in masks], dim=0)  ## B, n_max, Ht, Wt
-            stack_p_mask = F.interpolate(p_mask, size=train_size, mode="bilinear")[bi, qi]  ## K, Ht, Wt
+            stack_p_mask = p_mask[bi, qi]  ## K, Ht, Wt
             stack_gt_mask = gt_mask[bi, ti]  ## K, Ht, Wt
             stack_p_iou = p_iou[bi, qi, 0]  ## K
             stack_gt_iou = torch.tensor(
-                [calc_iou(p, g) for p, g in zip(list(stack_p_mask.sigmoid()), list(stack_gt_mask))])
+                [calc_iou(p, g) for p, g in zip(list(stack_p_mask.sigmoid()), list(stack_gt_mask))],
+                device=self.device
+            )
 
             """ Peripheral Inhibition and Selection (q_m)
             ti: 0 is most salient, 1 is second, ...
@@ -112,17 +115,17 @@ class BNDM(nn.Module):
             stack_p_sel: K,tk logit
             stack_gt_sel: K,tk binary
             """
-            v = torch.ones((bs, tk, 1), device=self.device) * n_max
-            v[bi, qi] = ti + 1.0
+            v = torch.ones((bs, tk, 1), device=self.device) * (n_max + 10)
+            v[bi, qi, 0] = ti + 1.0
             A = v @ (1.0 / v).transpose(-1, -2)  ## v \times 1/v, B, tk, tk
             B = (v + 1) @ (1.0 / v).transpose(-1, -2)  ## v+1 \times 1/v, B, tk, tk
             q_m = A.ge(1.0).float()
             p_sel = self.ps(q_w=q, q_m=q_m)
-            gt_sel = B.isclose(torch.tensor(1.0)).float()
-            assert gt_sel.sum(dim=-1).max(dim=-1).all() <= 1.00005, "{} > 1.0".format(
-                gt_sel.sum(dim=-1).max(dim=-1).all())
+            gt_sel = B.isclose(torch.tensor(1.0, dtype=B.dtype)).float()
+            assert gt_sel.sum(dim=-1).max() <= 1.0005, "{} > 1.0".format(gt_sel.sum(dim=-1).max())
             stack_p_sel = p_sel[bi, qi]  ## K, tk
             stack_gt_sel = gt_sel[bi, qi]  ## K, tk
+            sel_masking = stack_gt_sel.sum(dim=-1).gt(0.0).float()
 
             """ Loss
             p_obj (gt_obj), p_sal (gt_sal): B, nq, 1 [BCE, softmax]
@@ -135,7 +138,8 @@ class BNDM(nn.Module):
             sal_loss = F.cross_entropy(p_sal.squeeze(-1), torch.argmax(gt_sal.squeeze(-1), dim=1))
             mask_loss = batch_mask_loss(preds=stack_p_mask, targets=stack_gt_mask).mean()
             iou_loss = ((stack_p_iou.sigmoid() - stack_gt_iou) ** 2).mean()
-            sel_loss = F.cross_entropy(stack_p_sel, torch.argmax(stack_gt_sel, dim=-1))
+            sel_loss = (F.cross_entropy(stack_p_sel, torch.argmax(stack_gt_sel, dim=-1), reduction="none") *
+                        sel_masking).sum() / (sel_masking.sum()+1e-6)
 
             """ Debug """
             if np.random.rand() < 0.2:

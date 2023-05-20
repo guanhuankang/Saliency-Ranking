@@ -1,5 +1,5 @@
 MODEL:
-    META_ARCHITECTURE: "BNDM"
+    META_ARCHITECTURE: "PERP"
     PIXEL_MEAN: [123.675, 116.280, 103.530]
     PIXEL_STD: [58.395, 57.120, 57.375]
     BACKBONE:
@@ -44,10 +44,10 @@ LOSS:
     WEIGHTS:
         OBJ_POS: 10.0
         OBJ: 5.0
-        SAL: 10.0
+        SAL: 2.0
         MASK: 10.0
-        IOU: 2.0
-        SEL: 10.0
+        IOU: 1.0
+        SEL: 2.0
 DATASETS:
     TRAIN: ("assr_train",)
     TEST: ("assr_test",)

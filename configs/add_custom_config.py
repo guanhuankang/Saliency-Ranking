@@ -53,14 +53,14 @@ def add_custom_config(cfg, num_gpus=1):
     cfg.MODEL.HEAD.DROPOUT_FFN = 0.0
     cfg.MODEL.HEAD.NUM_BLOCKS = 2
 
-    cfg.MODEL.LOSS = CN()
-    cfg.MODEL.LOSS.WEIGHTS = CN()
-    cfg.MODEL.LOSS.WEIGHTS.OBJ_POS = 10.0
-    cfg.MODEL.LOSS.WEIGHTS.OBJ = 1.0
-    cfg.MODEL.LOSS.WEIGHTS.SAL = 1.0
-    cfg.MODEL.LOSS.WEIGHTS.MASK = 1.0
-    cfg.MODEL.LOSS.WEIGHTS.IOU = 1.0
-    cfg.MODEL.LOSS.WEIGHTS.SEL = 1.0
+    cfg.LOSS = CN()
+    cfg.LOSS.WEIGHTS = CN()
+    cfg.LOSS.WEIGHTS.OBJ_POS = 10.0
+    cfg.LOSS.WEIGHTS.OBJ = 1.0
+    cfg.LOSS.WEIGHTS.SAL = 1.0
+    cfg.LOSS.WEIGHTS.MASK = 1.0
+    cfg.LOSS.WEIGHTS.IOU = 1.0
+    cfg.LOSS.WEIGHTS.SEL = 1.0
 
     cfg.DATASETS.ROOT = ""
 

@@ -6,7 +6,6 @@ from ..component import MLPBlock, Attention
 from ..component import init_weights_
 
 class GSVLayer(nn.Module):
-    @configurable
     def __init__(self, embed_dim=256, num_heads=8, hidden_dim=1024, dropout_attn=0.0, dropout_ffn=0.0):
         super().__init__()
         self.self_attn = Attention(embedding_dim=embed_dim, num_heads=num_heads, downsample_rate=1)
@@ -57,7 +56,11 @@ class GlobalSalienceView(nn.Module):
             for _ in range(num_blocks)
         ])
         self.obj_head = nn.Linear(embed_dim, 1)
-        self.gso_head = MLPBlock(embedding_dim=embed_dim, mlp_dim=hidden_dim)
+        self.gso_head = nn.Sequential(
+            MLPBlock(embedding_dim=embed_dim, mlp_dim=hidden_dim),
+            nn.GELU(),
+            nn.Linear(embed_dim, 1)
+        )
 
     @classmethod
     def from_config(cls, cfg):
