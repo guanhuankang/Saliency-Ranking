@@ -145,6 +145,19 @@ def setup(args):
     cfg = get_cfg()
     add_custom_config(cfg, num_gpus=args.num_gpus)
     cfg.merge_from_file(args.config_file)
+
+    ## according to ENVNAME, set dataset root and pretrained root
+    root = {
+        "WORK": cfg.DATASETS.ENV.WORK,
+        "GROUP4090": cfg.DATASETS.ENV.GROUP4090,
+        "BURGUNDY": cfg.DATASETS.ENV.BURGUNDY,
+        "HTGC": cfg.DATASETS.ENV.HTGC,
+        "GROUP3090": cfg.DATASETS.ENV.GROUP3090,
+        "DEFAULT": cfg.DATASETS.ROOT
+    }.get(os.environ.get("ENVNAME", "DEFAULT").upper(), cfg.DATASETS.ROOT)
+    cfg.DATASETS.ROOT = root
+    cfg.MODEL.WEIGHTS = os.path.join(root, cfg.MODEL.WEIGHTS)
+
     cfg.merge_from_list(args.opts)
 
     ## Adjust IMS_PER_BATCH

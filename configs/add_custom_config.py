@@ -74,6 +74,12 @@ def add_custom_config(cfg, num_gpus=1):
     cfg.LOSS.WEIGHTS.SEL = 1.0
 
     cfg.DATASETS.ROOT = ""
+    cfg.DATASETS.ENV = CN()
+    cfg.DATASETS.ENV.WORK = ""
+    cfg.DATASETS.ENV.GROUP4090 = ""
+    cfg.DATASETS.ENV.BURGUNDY = ""
+    cfg.DATASETS.ENV.HTGC = ""
+    cfg.DATASETS.ENV.GROUP3090 = ""
 
     cfg.SOLVER.BACKBONE_MULTIPLIER = 0.1
     cfg.SOLVER.OPTIMIZER = "ADAMW"

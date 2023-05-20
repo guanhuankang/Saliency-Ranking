@@ -56,7 +56,13 @@ LOSS:
 DATASETS:
     TRAIN: ("assr_train",)
     TEST: ("assr_test",)
-    ROOT: "/home/grads/huankguan2/projects/saliencyranking/dataset/coco_sor"
+    ENV:
+        WORK: "D:/SaliencyRanking/dataset/coco_sor"
+        GROUP4090: "/home/ryn02/hkguan/saliencyranking/dataset/coco_sor"
+        BURGUNDY: "/home/huankguan2/saliencyranking/dataset/coco_sor"
+        HTGC: "/home/grads/huankguan2/projects/saliencyranking/dataset/coco_sor"
+        GROUP3090: "/home/luke/dataset/SOR_RANK/coco_sor"
+    ROOT: "datasets"
 DATALOADER:
     NUM_WORKERS: 8
 SOLVER:
