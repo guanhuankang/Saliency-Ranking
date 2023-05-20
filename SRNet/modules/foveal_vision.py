@@ -18,7 +18,7 @@ class Warp(nn.Module):
         """
         super().__init__()
         self.nc = (center + 1.0) / 2.0  ## normalized
-        self.nc = torch.clamp(self.nc, eps, 1.0-eps)  ## clamp
+        self.nc = torch.clamp(self.nc, eps, 1.0 - eps)  ## clamp
         self.a = -torch.log2(self.nc)  ## warp_factor, (*, 2) between (0,inf)
 
     def forward(self, coords):
@@ -47,6 +47,7 @@ class Warp(nn.Module):
         coords = (coords - 0.5) * 2.0  ## rescale to [-1, 1]
         coords = torch.clamp(coords, -1.0, 1.0)
         return coords
+
 
 class FovealVision(nn.Module):
     @configurable
@@ -85,7 +86,6 @@ class FovealVision(nn.Module):
             # "dropout_ffn": cfg.MODEL.HEAD.DROPOUT_FFN
         }
 
-
     def getGrids(self, size):
         """
 
@@ -103,7 +103,7 @@ class FovealVision(nn.Module):
         grid_y = torch.linspace(-1., 1., H).unsqueeze(1).expand(H, W)  ## H, W
         return torch.stack([grid_x, grid_y], dim=2)  ## H, W, 2
 
-    def forward(self, q, z, q_pe, z_pe, size, decoder):
+    def forward(self, q, z, q_pe, z_pe, size, get_coord_pe):
         """
 
         Args:
@@ -112,7 +112,7 @@ class FovealVision(nn.Module):
             q_pe: query positional embedding, B, n, C
             z_pe: feature positional embedding, B, N, C
             size: tuple (H, W), where H * W = N
-            decoder: for positional embedding
+            get_coord_pe: function for positional embedding
 
         Returns:
             q_warp: warp query, B, n, n, C under n-views
@@ -122,46 +122,52 @@ class FovealVision(nn.Module):
         assert np.prod(size) == z.shape[1], "{} != {}".format(np.prod(size), z.shape[1])
         B, n, C = q.shape
         p = self.pad_size
-        global_size = (size[0]+2*p, size[1]+2*p)
+        global_size = (size[0] + 2 * p, size[1] + 2 * p)
+
+        if n <= 0:
+            return torch.zeros((B, n, n, C), device=q.device), torch.zeros((B, n, *size), device=q.device), torch.zeros(
+                (B, n, 1), device=q.device)
 
         fixations = self.fixation_mlp(q + q_pe) @ (z + z_pe).transpose(-1, -2)  ## B, n, N
         fixations = torch.softmax(fixations, dim=-1).unflatten(2, sizes=size)  ## B, n, H, W
-        fixations = F.pad(fixations, pad=(p,p,p,p), mode="constant", value=0.0)  ## B, n, H+2p, W+2p
+        fixations = F.pad(fixations, pad=(p, p, p, p), mode="constant", value=0.0)  ## B, n, H+2p, W+2p
 
         grid_xy = self.getGrids(global_size).unsqueeze(0).expand(B, -1, -1, -1)  ## B,H+2p, W+2p, 2
         center = (fixations.unsqueeze(-1) * grid_xy.unsqueeze(1)).sum(dim=[2, 3])  ## B, n, 2
         center = torch.clamp(center, -1.0, 1.0)  ## B, n, 2
 
         feat = z.transpose(-1, -2).unflatten(2, size)  ## B, C, H, W
-        feat = F.pad(feat, pad=(p,p,p,p), mode="constant", value=0.0)  ## B, C, H+2p, W+2p
+        feat = F.pad(feat, pad=(p, p, p, p), mode="constant", value=0.0)  ## B, C, H+2p, W+2p
 
         grid_xy_reshape = grid_xy.permute(1, 2, 0, 3).flatten(0, 1)  ## HW~,B,2
-        query_list = []
-        mask_list = []
+        q_warp = []
+        pred_masks = []
         iou_scores = []
         for i in range(n):  ## For each view
             warp = Warp(center=center[:, i, :])  ## create a warp instance, (B, 2)
             warp_xy = warp(grid_xy_reshape).permute(1, 0, 2).reshape(-1, *global_size, 2)  ## B, H+2p, W+2p, 2
-            reco_xy = warp.warp_backward(grid_xy_reshape).permute(1, 0, 2).reshape(-1, *global_size, 2)  ## B, H+2p, W+2p, 2
+            reco_xy = warp.warp_backward(grid_xy_reshape).permute(1, 0, 2).reshape(-1, *global_size,
+                                                                                   2)  ## B, H+2p, W+2p, 2
             warp_center = warp.warp_backward(center.transpose(0, 1)).transpose(0, 1)  ## B, n, 2
-            warp_center_pe = decoder.get_coord_pe(warp_center, global_size)  ## B, n, C
+            warp_center_pe = get_coord_pe(warp_center, global_size)  ## B, n, C
 
             feat_warp = F.grid_sample(feat, warp_xy)  ## B, C, H+2p, W+2p
             fixation_warp = F.grid_sample(fixations, warp_xy)  ## B, n, H+2p, W+2p
 
             z_warp = feat_warp.flatten(2).transpose(-1, -2)  ## B, N~, C
             q_w = (feat_warp.unsqueeze(1) * fixation_warp.unsqueeze(2)).sum(dim=[-1, -2])  ## B, n, C
-            q_w = self.norm(q_w + self.dropout(self.query_to_feat_attn(q=q_w + warp_center_pe, k=z_warp+z_pe, v=z_warp)))  ## B, n, C
-            query_list.append(q_w + warp_center_pe)  ## B, n, C
+            q_w = self.norm(q_w + self.dropout(
+                self.query_to_feat_attn(q=q_w + warp_center_pe, k=z_warp + z_pe, v=z_warp)))  ## B, n, C
+            q_warp.append(q_w + warp_center_pe)  ## B, n, C
 
             q_w = self.mlp(q_w)  ## B, n, C
             m_w = (q_w @ z_warp.transpose(-1, -2)).unflatten(2, size)  ## B, n, H+2p, W+2p
             m = F.grid_sample(m_w, reco_xy)  ## B, n, H+2p, W+2p
-            mask_list.append(m[:, i:i+1, p:-p, p:-p])  ## B, 1, H, W
+            pred_masks.append(m[:, i:i + 1, p:-p, p:-p])  ## B, 1, H, W
 
             iou_score = self.iou_head(q_w)  ## B, n, 1
-            iou_scores.append(iou_score[:, i:i+1, :])  ## B, 1, 1
-        query_list = torch.stack(query_list, dim=1)  ## B, n(n_views), n, C
-        mask_list = torch.cat(mask_list, dim=1)  ## B, n, H, W
+            iou_scores.append(iou_score[:, i:i + 1, :])  ## B, 1, 1
+        q_warp = torch.stack(q_warp, dim=1)  ## B, n(n_views), n, C
+        pred_masks = torch.cat(pred_masks, dim=1)  ## B, n, H, W
         iou_scores = torch.cat(iou_scores, dim=1)  ## B, n, 1
-        return query_list, mask_list, iou_scores
+        return q_warp, pred_masks, iou_scores

@@ -40,6 +40,14 @@ MODEL:
         DROPOUT_FFN: 0.0
         NUM_BLOCKS: 2
     WEIGHTS: "pretrained/swin_base_patch4_window12_384_22k.pth"
+LOSS:
+    WEIGHTS:
+        OBJ_POS: 10.0
+        OBJ: 5.0
+        SAL: 10.0
+        MASK: 10.0
+        IOU: 2.0
+        SEL: 10.0
 DATASETS:
     TRAIN: ("assr_train",)
     TEST: ("assr_test",)

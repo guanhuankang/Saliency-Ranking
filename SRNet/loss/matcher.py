@@ -1,10 +1,10 @@
 import scipy
 import torch
-from typing import Dict, List
+from typing import Dict, List, Tuple
 from .loss import batch_mask_loss
 
 @torch.no_grad()
-def hungarianMatcher(preds: Dict, targets: List) -> List:
+def hungarianMatcher(preds: Dict, targets: List) -> Tuple:
     """
         Params:
             preds: a dict:
@@ -13,10 +13,11 @@ def hungarianMatcher(preds: Dict, targets: List) -> List:
             targets: list of targets with length=batch_size, each is a torch.Tensor
                 in shape N,H,W (binary map indicates the foreground/background)
         Returns:
-            list of tuples: each tuple indicates the mapping indices between preds and targets
+            indices: tuple [Tensor, Tensor, Tensor]
+                each tensor is a 1D vector, repr index.
     """
     B = len(targets)
-    indices = []
+    indices = [[], [], []]
     for b in range(B):
         tgts = targets[b].unsqueeze(1)  ## N,1,H,W
         masks = preds["masks"][b].unsqueeze(1)  ## nq, 1, h, w
@@ -27,8 +28,8 @@ def hungarianMatcher(preds: Dict, targets: List) -> List:
         cls_loss = -torch.sigmoid(preds["scores"][b]).repeat_interleave(N, dim=1)  ## nq, N
         cost_matrix = mask_loss + cls_loss  ## nq, N
         row_idxs, col_idxs = scipy.optimize.linear_sum_assignment(cost_matrix.detach().cpu().numpy())
-        indices.append((
-            torch.tensor(row_idxs, device=cost_matrix.device, dtype=torch.long),
-            torch.tensor(col_idxs, device=cost_matrix.device, dtype=torch.long),
-        ))
-    return indices
+        indices[0].append((torch.ones(len(row_idxs), device=cost_matrix.device) * b).long())  ## batch index
+        indices[1].append(torch.tensor(row_idxs, device=cost_matrix.device, dtype=torch.long))  ## query index
+        indices[2].append(torch.tensor(col_idxs, device=cost_matrix.device, dtype=torch.long))  ## target index
+    return tuple(torch.cat(idx) for idx in indices)
+

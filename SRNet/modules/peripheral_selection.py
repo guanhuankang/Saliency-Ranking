@@ -34,7 +34,6 @@ class PeripheralSelection(nn.Module):
         ])
         self.inh = nn.Parameter(torch.randn(1, embed_dim))
         self.sel_head = nn.Linear(embed_dim, 1)
-        self.inh_head = nn.Linear(embed_dim, 1)
 
     @classmethod
     def from_config(cls, cfg):
@@ -55,7 +54,6 @@ class PeripheralSelection(nn.Module):
             q_m: query_mask/inhibition B, m, n (01 mask, 1 means inhibition, 0 means no inh)
 
         Returns:
-            inh_scores: B, m, n (logit -- sigmoid dim=-1, lt0.5 means is inhibition)
             sel_scores: B, m, n (logit -- softmax dim=-1, selection)
         """
         B, m, n = q_m.shape
@@ -65,5 +63,4 @@ class PeripheralSelection(nn.Module):
         for layer in self.layers:
             q_w = layer(q_w)
         sel = self.sel_head(q_w).unflatten(0, (B, m))  ## B, m, n, 1
-        inh = self.inh_head(q_w).unflatten(0, (B, m))  ## B, m, n, 1
-        return inh.squeeze(-1), sel.squeeze(-1)
+        return sel.squeeze(-1)

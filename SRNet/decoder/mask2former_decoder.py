@@ -132,7 +132,7 @@ class Mask2FormerDecoder(nn.Module):
     def get_query_pos(self, b=1):
         return torch.repeat_interleave(self.query_pos, b, dim=0)
 
-    def forward(self, feats: dict, deep_supervision=False):
+    def forward(self, feats: dict):
         """
 
         Args:
@@ -148,9 +148,11 @@ class Mask2FormerDecoder(nn.Module):
             z: B, HW, C
             q_pe: B, nq, C
             z_pe: B, HW, C
+            size: tuple [int, int]
         """
 
         z = [feats[k] for k in self.feature_keys]
+        size = tuple(z[-1].shape[2::])
 
         _, nq, C = self.query.shape
         B = len(z[0])
@@ -160,12 +162,12 @@ class Mask2FormerDecoder(nn.Module):
         zpe = [self.get_dense_pe(x.shape[2::], B).flatten(2).transpose(-1, -2) for x in z]
         z = [x.flatten(2).transpose(-1, -2) for x in z]
 
-        qs = [q]  ## for deep supervision
+        # qs = [q]  ## for deep supervision
         for layer in self.layers:
             q = layer(q=q, qpe=qpe, z=z, zpe=zpe)
-            qs.append(q)
+            # qs.append(q)
 
-        if deep_supervision:
-            return q, qs
-        else:
-            return q
+        z = z[-1]
+        zpe = zpe[-1]
+
+        return q, z, qpe, zpe, size

@@ -1,4 +1,5 @@
 import os, cv2
+import torch
 import numpy as np
 from PIL import Image, ImageDraw
 
@@ -25,3 +26,21 @@ def debugDump(output_dir, image_name, texts, lsts, size=(256, 256)):
         outs.append(np.array(out))
     out = Image.fromarray(np.concatenate(outs, axis=0))
     out.save(os.path.join(output_dir, "debug", image_name+".png"))
+
+def pad1d(x, dim, num, value=0.0):
+    """
+
+    Args:
+        pad a torch.Tensor along dim (at the end) to be dim=num
+        x: any shape torch.Tensor
+        dim: int
+        repeats: int
+
+    Returns:
+        x: where x.shape[dim] = num
+    """
+    size = list(x.shape)
+    size[dim] = num - size[dim]
+    assert size[dim] >= 0, "{} < 0".format(size[dim])
+    v = torch.ones(size, dtype=x.dtype, device=x.device) * value
+    return torch.cat([x, v], dim=dim)
