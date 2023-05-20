@@ -51,6 +51,7 @@ class PERP(nn.Module):
 
         nq, C = q.shape[1::]
         tk = min(n_max + n_max, nq) if self.training else (p_obj.gt(0.0).sum(dim=1)).max()
+        tk = max(min(tk, 20), 1)  ## for memory efficiency and reasonale infer
         oi1 = torch.arange(bs, device=self.device, dtype=torch.long).repeat_interleave(tk)
         oi2 = p_obj.topk(tk, dim=1)[1].view(-1)  ## B * tk
         p_obj_tk = p_obj[oi1, oi2, :].reshape(bs, tk, 1)  ## B, tk, 1
@@ -183,6 +184,16 @@ class PERP(nn.Module):
             orders: index of last salient object across tk queries over batch
             overall_scores: sal/sel_score x obj_score 
             """
+            if tk <= 0:
+                return [{
+                    "image_name": batch_dict[i]["image_name"],
+                    "masks": [],
+                    "scores": [],
+                    "obj_scores": [],
+                    "overall_scores": [],
+                    "num": 0
+                } for i in range(bs)]
+
             p_sal_tk = p_sal_tk.softmax(dim=1).squeeze(-1)  ## B, tk
             p_obj_tk = p_obj_tk.sigmoid().squeeze(-1)  ## B, tk
             p_iou = p_iou.sigmoid().squeeze(-1)  ## B, tk
