@@ -219,19 +219,20 @@ class PERP(nn.Module):
 
                 orders.append(order)
                 overall_scores.append(nxt_scores[bs_idx, order] * p_obj_tk[bs_idx, order])
-
+            orders = torch.stack(orders, dim=1).long()  ## B, tk
+            overall_scores = torch.stack(overall_scores, dim=1)  ## B, tk
             """
-            orders: list of 1-D tensor.Tensor [B]
-            overall_scores: list of overall scores [B] 
+            orders: Oij means sample_i's j^th rank object index
+            overall_scores: quanlity scores
             """
             results = []
             for i in range(bs):
                 Ho, Wo = batch_dict[i]["height"], batch_dict[i]["width"]
                 image_name = batch_dict[i]["image_name"]
-                rank_idx = torch.tensor([o[i] for o in orders])
+                rank_idx = orders[i].clone()
 
-                oa_scores = torch.tensor([o[i] for o in overall_scores])
-                pred_masks = F.interpolate(p_mask[i:i+1], size=(Ho, Wo), mode="bilinear").sigmoid()[rank_idx][0]
+                oa_scores = overall_scores[i]
+                pred_masks = F.interpolate(p_mask[i:i+1], size=(Ho, Wo), mode="bilinear").sigmoid()[0][rank_idx]
                 scores = p_iou[i][rank_idx]  ## iou
                 obj_scores = p_obj[i][rank_idx]
                 num = len(obj_scores)
