@@ -197,6 +197,7 @@ class PERP(nn.Module):
             p_sal_tk = p_sal_tk.softmax(dim=1).squeeze(-1)  ## B, tk
             p_obj_tk = p_obj_tk.sigmoid().squeeze(-1)  ## B, tk
             p_iou = p_iou.sigmoid().squeeze(-1)  ## B, tk
+            p_obj = p_obj.sigmoid().squeeze(-1)  ## B, tk
 
             bs_idx = torch.arange(bs, device=self.device, dtype=torch.long)  ## B
             order = torch.argmax(p_sal_tk, dim=1)  ## B
