@@ -1,2 +1,4 @@
 nvidia-smi
-python train_net.py --config-file configs/swinb_srnet.yaml SOLVER.IMS_PER_GPU 1 INPUT.FT_SIZE_TRAIN 1024 INPUT.FT_SIZE_TEST 1024 TEST.EVAL_PERIOD 5000 DATASETS.ROOT /home/grads/huankguan2/projects/saliencyranking/dataset/coco_sor MODEL.WEIGHTS /home/grads/huankguan2/projects/saliencyranking/swin_base_patch4_window12_384_22k.pth OUTPUT_DIR output/instance-seg
+python train_net.py --config-file configs/swinb_srnet.yaml SOLVER.IMS_PER_GPU 2 TEST.EVAL_PERIOD 5000 DATASETS.ROOT /home/grads/huankguan2/projects/saliencyranking/dataset/coco_sor MODEL.WEIGHTS /home/grads/huankguan2/projects/saliencyranking/swin_base_patch4_window12_384_22k.pth OUTPUT_DIR output/htgc3
+
+#python train_net.py --config-file configs/swinb_srnet.yaml SOLVER.IMS_PER_GPU 1 INPUT.FT_SIZE_TRAIN 1024 INPUT.FT_SIZE_TEST 1024 TEST.EVAL_PERIOD 5000 DATASETS.ROOT /home/grads/huankguan2/projects/saliencyranking/dataset/coco_sor MODEL.WEIGHTS /home/grads/huankguan2/projects/saliencyranking/swin_base_patch4_window12_384_22k.pth OUTPUT_DIR output/instance-seg
