@@ -49,15 +49,15 @@ class PERP(nn.Module):
         q, z, q_pe, z_pe, size = self.decoder(z)
         q, z, p_obj, p_sal = self.gsv(q=q, z=z, q_pe=q_pe, z_pe=z_pe)
 
-        nq = q.shape[1]
+        nq, C = q.shape[1::]
         tk = min(n_max + n_max, nq) if self.training else (p_obj.gt(0.0).sum(dim=1)).max()
         oi1 = torch.arange(bs, device=self.device, dtype=torch.long).repeat_interleave(tk)
         oi2 = p_obj.topk(tk, dim=1)[1].view(-1)  ## B * tk
         p_obj_tk = p_obj[oi1, oi2, :].reshape(bs, tk, 1)  ## B, tk, 1
         p_sal_tk = p_sal[oi1, oi2, :].reshape(bs, tk, 1)  ## B, tk, 1
 
-        q = q[oi1, oi2, :].reshape(bs, tk, -1)  ## B, tk, C
-        q_pe = q_pe[oi1, oi2, :].reshape(bs, tk, -1)  ## B, tk, C
+        q = q[oi1, oi2, :].reshape(bs, tk, C)  ## B, tk, C
+        q_pe = q_pe[oi1, oi2, :].reshape(bs, tk, C)  ## B, tk, C
         q, p_mask, p_iou = self.fv(q=q, z=z, q_pe=q_pe, z_pe=z_pe, size=size, pe_layer=self.decoder)
 
         """
