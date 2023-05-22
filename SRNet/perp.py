@@ -186,7 +186,7 @@ class PERP(nn.Module):
             """
             if tk <= 0:
                 return [{
-                    "image_name": batch_dict[i]["image_name"],
+                    "image_name": batch_dict[i].get("image_name", f"unknown_{i}"),
                     "masks": [],
                     "scores": [],
                     "obj_scores": [],
@@ -228,7 +228,7 @@ class PERP(nn.Module):
             results = []
             for i in range(bs):
                 Ho, Wo = batch_dict[i]["height"], batch_dict[i]["width"]
-                image_name = batch_dict[i]["image_name"]
+                image_name = batch_dict[i].get("image_name", f"unknown_{i}")
                 rank_idx = orders[i].clone()
 
                 oa_scores = overall_scores[i]
@@ -240,7 +240,7 @@ class PERP(nn.Module):
                 toC = lambda x: x.detach().float().cpu()
                 results.append({
                     "image_name": image_name,
-                    "masks": list(toC(pred_masks)),
+                    "masks": list(toC(pred_masks).gt(.5).float()),
                     "scores": toC(scores).tolist(),
                     "obj_scores": toC(obj_scores).tolist(),
                     "overall_scores": toC(oa_scores).tolist(),
