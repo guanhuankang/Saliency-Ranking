@@ -120,6 +120,7 @@ class FovealVision(nn.Module):
             q_warp: warp query, B, n, n, C under n-views
             pred_masks: B, n, H, W logit, the predicted masks
             iou_scores: B, n, 1, the iou scores for each mask
+            others: for debug purpose / intermedia results
         """
         assert np.prod(size) == z.shape[1], "{} != {}".format(np.prod(size), z.shape[1])
         B, n, C = q.shape
@@ -177,4 +178,12 @@ class FovealVision(nn.Module):
         pred_masks = torch.cat(pred_masks, dim=1)  ## B, n, H, W
         warp_masks = torch.cat(warp_masks, dim=1)
         iou_scores = torch.cat(iou_scores, dim=1)  ## B, n, 1
-        return q_warp, pred_masks, iou_scores
+
+        ## debug
+        _, _, H, W = fixations.shape
+        norm_center = (center + 1.0) / 2.0
+        corr_center = (1.0+2*p/W) * norm_center - p/W
+        corr_center[:, :, 1] = (1.0+2*p/H) * norm_center[:, :, 1] - p/H  ## B,n,2 [0.0,1.0]
+        fixations = fixations[:, :, p:-p, p:-p]  ## B,n,H,W
+        others = (fixations, corr_center)
+        return q_warp, pred_masks, iou_scores, others

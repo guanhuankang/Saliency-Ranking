@@ -59,7 +59,7 @@ class PERP(nn.Module):
 
         q = q[oi1, oi2, :].reshape(bs, tk, C)  ## B, tk, C
         q_pe = q_pe[oi1, oi2, :].reshape(bs, tk, C)  ## B, tk, C
-        q, p_mask, p_iou = self.fv(q=q, z=z, q_pe=q_pe, z_pe=z_pe, size=size, pe_layer=self.decoder)
+        q, p_mask, p_iou, p_other = self.fv(q=q, z=z, q_pe=q_pe, z_pe=z_pe, size=size, pe_layer=self.decoder)
 
         """
         q: query_warp, B, tk, tk, C
@@ -188,11 +188,17 @@ class PERP(nn.Module):
                 return [{
                     "image_name": batch_dict[i].get("image_name", f"unknown_{i}"),
                     "masks": [],
+                    "fixations": [],
+                    "centers": [],
                     "scores": [],
                     "obj_scores": [],
                     "overall_scores": [],
                     "num": 0
                 } for i in range(bs)]
+
+            p_fixations, p_centers = p_other
+            p_fixations = p_fixations / p_fixations.max()  ## B, tk, H+2p, W+2p
+            # p_centers = p_centers ## B, tk, 2
 
             p_sal_tk = p_sal_tk.softmax(dim=1).squeeze(-1)  ## B, tk
             p_obj_tk = p_obj_tk.sigmoid().squeeze(-1)  ## B, tk
@@ -233,6 +239,8 @@ class PERP(nn.Module):
 
                 oa_scores = overall_scores[i]
                 pred_masks = F.interpolate(p_mask[i:i+1], size=(Ho, Wo), mode="bilinear").sigmoid()[0][rank_idx]
+                fixations = F.interpolate(p_fixations[i:i+1], size=(Ho, Wo), mode="bilinear")[0][rank_idx]
+                centers = p_centers[i][rank_idx] * torch.tensor([[Wo, Ho]], device=p_centers.device)  ## tk, 2
                 scores = p_iou[i][rank_idx]  ## iou
                 obj_scores = p_obj[i][rank_idx]
                 num = len(obj_scores)
@@ -241,6 +249,8 @@ class PERP(nn.Module):
                 results.append({
                     "image_name": image_name,
                     "masks": list(toC(pred_masks).gt(.5).float()),
+                    "fixations": list(toC(fixations)),
+                    "centers": toC(centers).tolist(),
                     "scores": toC(scores).tolist(),
                     "obj_scores": toC(obj_scores).tolist(),
                     "overall_scores": toC(oa_scores).tolist(),

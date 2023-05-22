@@ -9,7 +9,7 @@ import time
 import warnings
 import cv2
 import tqdm
-from PIL import Image
+from PIL import Image, ImageDraw
 
 from detectron2.config import get_cfg
 from detectron2.data.detection_utils import read_image
@@ -125,21 +125,35 @@ if __name__ == "__main__":
                 )
             )
 
-            ## save:
+            ## SAVE
             if args.output:
                 os.makedirs(args.output, exist_ok=True)
-                # uncomment to store each instance individully
+                # uncomment to store each instance individually
                 image_name = path.split("/")[-1][0:-4]
-                idx = 1
-                for m,o,s in zip(predictions["masks"], predictions["obj_scores"], predictions["scores"]):
-                    m = (m * 255).numpy().astype(np.uint8)
-                    Image.fromarray(m).convert("L").save(os.path.join(args.output, "{image_name}_{idx}_{obj}_{iou}.png".format(
-                        image_name=image_name,
-                        idx=idx,
-                        obj=round(float(o),2),
-                        iou=round(float(s),2)
-                    )))
-                    idx += 1
+                rank = 1
+                for m_, f_, c_, o, s in zip(
+                        predictions["masks"],
+                        predictions["fixations"],
+                        predictions["centers"],
+                        predictions["obj_scores"],
+                        predictions["scores"]
+                ):
+                    ms = [m_, f_]
+                    idts = ["mask", "fixation"]
+                    c_ = np.array(c_).astype(int)
+                    radiu = 10
+                    for m, idt in zip(ms, idts):
+                        m = (m * 255).numpy().astype(np.uint8)
+                        out = Image.fromarray(m).convert("RGB")
+                        draw = ImageDraw.Draw(out)
+                        draw.ellipse([tuple(c_-radiu), tuple(c_+radiu)], fill="red")
+                        out.save(os.path.join(args.output, "{image_name}_rank{rank}_{idt}_obj{obj}.png".format(
+                            image_name=image_name,
+                            rank=rank,
+                            idt=idt,
+                            obj=round(float(o), 2),
+                        )))
+                    rank += 1
 
             if args.output:
                 if os.path.isdir(args.output):
