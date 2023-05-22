@@ -32,6 +32,7 @@ MODEL:
     MODULES:
         FOVEAL_VISION:
             PAD_SIZE: 5
+            NUM_BLOCKS: 2
         PERIPHERAL_SELECTION:
             NUM_BLOCKS: 3
         GLOBAL_SALIENCE_VIEW:

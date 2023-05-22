@@ -71,6 +71,8 @@ class PERP(nn.Module):
         """
         if self.training:
             """ Training """
+            p_warp_mask, warp_xys, pad, attn, center = p_other
+
             p_mask = F.interpolate(p_mask, size=train_size, mode="bilinear")
             bi, qi, ti = hungarianMatcher(preds={"masks": p_mask, "scores": p_obj_tk}, targets=masks)
 
@@ -103,6 +105,16 @@ class PERP(nn.Module):
                 [calc_iou(p, g) for p, g in zip(list(stack_p_mask.sigmoid()), list(stack_gt_mask))],
                 device=self.device
             )
+
+            ## warp_mask GT
+            Hp, Wp = warp_xys.shape[2:4]
+            warp_xys = warp_xys[bi, qi]  ## K, H+2p, W+2p, 2
+            stack_gt_warp_mask = F.pad(
+                F.interpolate(stack_gt_mask.unsqueeze(1), size=(Hp-2*pad, Wp-2*pad), mode="bilinear"),
+                pad=(pad,pad,pad,pad), mode="constant", value=0
+            )  ## K, 1, H+2p, W+2p
+            stack_gt_warp_mask = F.grid_sample(stack_gt_warp_mask, warp_xys)[:, 0, pad:-pad, pad:-pad].gt(.5).float()  ## K, Ht, Wt
+            stack_p_warp_mask = p_warp_mask[bi, qi]  ## K, H, W
 
             """ Peripheral Inhibition and Selection (q_m)
             ti: 0 is most salient, 1 is second, ...
@@ -138,6 +150,7 @@ class PERP(nn.Module):
             obj_loss = F.binary_cross_entropy_with_logits(p_obj, gt_obj, pos_weight=obj_pos_weight)
             sal_loss = F.cross_entropy(p_sal.squeeze(-1), torch.argmax(gt_sal.squeeze(-1), dim=1))
             mask_loss = batch_mask_loss(preds=stack_p_mask, targets=stack_gt_mask).mean()
+            mask_warp_loss = batch_mask_loss(preds=stack_p_warp_mask, targets=stack_gt_warp_mask).mean()
             iou_loss = ((stack_p_iou.sigmoid() - stack_gt_iou) ** 2).mean()
             sel_loss = (F.cross_entropy(stack_p_sel, torch.argmax(stack_gt_sel, dim=-1), reduction="none") *
                         sel_masking).sum() / (sel_masking.sum()+1e-6)
@@ -166,6 +179,7 @@ class PERP(nn.Module):
                 "obj_loss": obj_loss * w_obj,
                 "sal_loss": sal_loss * w_sal,
                 "mask_loss": mask_loss * w_mask,
+                "mask_warp_loss": mask_warp_loss * w_mask,
                 "iou_loss": iou_loss * w_iou,
                 "sel_loss": sel_loss * w_sel
             }
@@ -196,9 +210,8 @@ class PERP(nn.Module):
                     "num": 0
                 } for i in range(bs)]
 
-            p_fixations, p_centers = p_other
-            p_fixations = p_fixations / p_fixations.max()  ## B, tk, H+2p, W+2p
-            # p_centers = p_centers ## B, tk, 2
+            p_warp_mask, warp_xys, pad, attn, center = p_other
+            attn = attn / attn.flatten(2).max(dim=-1)[0].unsqueeze(-1).unsqueeze(-1)  ## normalize
 
             p_sal_tk = p_sal_tk.softmax(dim=1).squeeze(-1)  ## B, tk
             p_obj_tk = p_obj_tk.sigmoid().squeeze(-1)  ## B, tk
@@ -239,8 +252,8 @@ class PERP(nn.Module):
 
                 oa_scores = overall_scores[i]
                 pred_masks = F.interpolate(p_mask[i:i+1], size=(Ho, Wo), mode="bilinear").sigmoid()[0][rank_idx]
-                fixations = F.interpolate(p_fixations[i:i+1], size=(Ho, Wo), mode="bilinear")[0][rank_idx]
-                centers = p_centers[i][rank_idx] * torch.tensor([[Wo, Ho]], device=p_centers.device)  ## tk, 2
+                fixations = F.interpolate(attn[i:i+1], size=(Ho, Wo), mode="bilinear")[0][rank_idx]
+                centers = center[i][rank_idx] * torch.tensor([[Wo, Ho]], device=center.device)  ## tk, 2
                 scores = p_iou[i][rank_idx]  ## iou
                 obj_scores = p_obj[i][rank_idx]
                 num = len(obj_scores)

@@ -153,7 +153,7 @@ def setup(args):
         "BURGUNDY": cfg.DATASETS.ENV.BURGUNDY,
         "HTGC": cfg.DATASETS.ENV.HTGC,
         "GROUP3090": cfg.DATASETS.ENV.GROUP3090
-    }.get(dict(os.environ).get("ENVNAME"), cfg.DATASETS.ROOT)
+    }.get(dict(os.environ).get("ENVNAME").upper(), cfg.DATASETS.ROOT)
     cfg.DATASETS.ROOT = root
     print("ROOT:", root)
     
