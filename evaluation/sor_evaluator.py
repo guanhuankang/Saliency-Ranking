@@ -80,14 +80,25 @@ class SOREvaluator(DatasetEvaluator):
                 os.makedirs(out_path, exist_ok=True)
                 preds = [x.cpu().detach().numpy() for x in preds]
                 n = len(preds)
-                for i in range(n):
-                    Image.fromarray((preds[i]*255).astype(np.uint8)).save(
-                        os.path.join(out_path, f"{image_name}_top_{i+1}.png")
-                    )
-                for i in range(len(gts)):
-                    Image.fromarray((gts[i].numpy()*255).astype(np.uint8)).save(
-                        os.path.join(out_path, f"{image_name}_top_{i+1}_gt.png")
-                    )
+
+                uni = np.linspace(1.0, 0.5, n)
+                pred_mask = np.zeros((inp["height"], inp["width"]), dtype=float)
+                for i in range(n-1, -1, -1):
+                    tmp = np.where(preds[i] > .5)
+                    pred_mask[tmp] = uni[i]
+                pred_mask = (pred_mask * 255).astype(np.uint8)
+                Image.fromarray(pred_mask).save(
+                    os.path.join(out_path, f"{image_name}_count_{n}.png")
+                )
+
+                # for i in range(n):
+                #     Image.fromarray((preds[i]*255).astype(np.uint8)).save(
+                #         os.path.join(out_path, f"{image_name}_top_{i+1}.png")
+                #     )
+                # for i in range(len(gts)):
+                #     Image.fromarray((gts[i].numpy()*255).astype(np.uint8)).save(
+                #         os.path.join(out_path, f"{image_name}_top_{i+1}_gt.png")
+                #     )
     
     def evaluate(self):
         return self.metrics.aggregate(self.results)

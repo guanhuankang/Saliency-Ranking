@@ -147,11 +147,12 @@ if __name__ == "__main__":
                         out = Image.fromarray(m).convert("RGB")
                         draw = ImageDraw.Draw(out)
                         draw.ellipse([tuple(c_-radiu), tuple(c_+radiu)], fill="red")
-                        out.save(os.path.join(args.output, "{image_name}_rank{rank}_{idt}_obj{obj}.png".format(
+                        out.save(os.path.join(args.output, "{image_name}_rank{rank}_{idt}_obj{obj}_iou{iou}.png".format(
                             image_name=image_name,
                             rank=rank,
                             idt=idt,
                             obj=round(float(o), 2),
+                            iou=round(float(s), 2),
                         )))
                     rank += 1
 

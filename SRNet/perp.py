@@ -216,7 +216,6 @@ class PERP(nn.Module):
             p_sal_tk = p_sal_tk.softmax(dim=1).squeeze(-1)  ## B, tk
             p_obj_tk = p_obj_tk.sigmoid().squeeze(-1)  ## B, tk
             p_iou = p_iou.sigmoid().squeeze(-1)  ## B, tk
-            p_obj = p_obj.sigmoid().squeeze(-1)  ## B, tk
 
             bs_idx = torch.arange(bs, device=self.device, dtype=torch.long)  ## B
             order = torch.argmax(p_sal_tk, dim=1)  ## B
@@ -255,7 +254,7 @@ class PERP(nn.Module):
                 fixations = F.interpolate(attn[i:i+1], size=(Ho, Wo), mode="bilinear")[0][rank_idx]
                 centers = center[i][rank_idx] * torch.tensor([[Wo, Ho]], device=center.device)  ## tk, 2
                 scores = p_iou[i][rank_idx]  ## iou
-                obj_scores = p_obj[i][rank_idx]
+                obj_scores = p_obj_tk[i][rank_idx]
                 num = len(obj_scores)
 
                 toC = lambda x: x.detach().float().cpu()
