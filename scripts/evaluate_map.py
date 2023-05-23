@@ -50,7 +50,7 @@ def main(args):
             gt = sor_dataset_mapper_test(gt_zip, cfg)
 
             pred = np.array(Image.open(os.path.join(path, gt["image_name"]+".png")).convert("L"))
-            unis = np.unique(pred)[::-1]
+            unis = np.unique(pred)[::-1][0:-1]
             instances = [(pred == u) * 1.0 for u in unis]
 
             sor_evaluator.process([gt], [{"masks": instances}])
