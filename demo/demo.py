@@ -131,12 +131,13 @@ if __name__ == "__main__":
                 # uncomment to store each instance individually
                 image_name = path.split("/")[-1][0:-4]
                 rank = 1
-                for m_, f_, c_, o, s in zip(
+                for m_, f_, c_, o, u, s in zip(
                         predictions["masks"],
                         predictions["fixations"],
                         predictions["centers"],
                         predictions["obj_scores"],
-                        predictions["scores"]
+                        predictions["scores"],
+                        predictions["overall_scores"],
                 ):
                     ms = [m_, f_]
                     idts = ["mask", "fixation"]
@@ -147,12 +148,13 @@ if __name__ == "__main__":
                         out = Image.fromarray(m).convert("RGB")
                         draw = ImageDraw.Draw(out)
                         draw.ellipse([tuple(c_-radiu), tuple(c_+radiu)], fill="red")
-                        out.save(os.path.join(args.output, "{image_name}_rank{rank}_{idt}_obj{obj}_iou{iou}.png".format(
+                        out.save(os.path.join(args.output, "{image_name}_rank{rank}_{idt}_obj{obj}_iou{iou}_sal{sal}.png".format(
                             image_name=image_name,
                             rank=rank,
                             idt=idt,
                             obj=round(float(o), 2),
-                            iou=round(float(s), 2),
+                            iou=round(float(u), 2),
+                            sal=round(float(s), 2)
                         )))
                     rank += 1
 

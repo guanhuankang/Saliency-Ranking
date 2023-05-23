@@ -219,7 +219,7 @@ class PERP(nn.Module):
 
             bs_idx = torch.arange(bs, device=self.device, dtype=torch.long)  ## B
             order = torch.argmax(p_sal_tk, dim=1)  ## B
-            overall_scores = [p_sal_tk[bs_idx, order] * p_obj_tk[bs_idx, order]]  ## B
+            overall_scores = [p_sal_tk[bs_idx, order]]  ## B
             orders = [order]
 
             q_m = torch.diag(torch.ones(tk, device=self.device)).unsqueeze(0).expand(bs, -1, -1)  ## Eye: B, tk, tk
@@ -236,7 +236,7 @@ class PERP(nn.Module):
                 order = torch.argmax(nxt_scores, dim=-1)  ## B
 
                 orders.append(order)
-                overall_scores.append(nxt_scores[bs_idx, order] * p_obj_tk[bs_idx, order])
+                overall_scores.append(nxt_scores[bs_idx, order])
             orders = torch.stack(orders, dim=1).long()  ## B, tk
             overall_scores = torch.stack(overall_scores, dim=1)  ## B, tk
             """
