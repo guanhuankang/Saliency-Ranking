@@ -99,7 +99,7 @@ INPUT:
 OUTPUT_DIR: "output/"
 TEST:
     EVAL_PERIOD: 5000
-    METRICS_OF_INTEREST: ["mae", "acc", "fbeta", "iou", "sa_sor", "sor", "ap", "ar", "top1"]
+    METRICS_OF_INTEREST: ["mae", "acc", "fbeta", "iou", "sa_sor", "sor", "ap", "ar", "top1", "top2", "top3", "top4", "top5"]
     THRESHOLD: 0.5
     EXPECTED_RESULTS: []
     PRECISE_BN:

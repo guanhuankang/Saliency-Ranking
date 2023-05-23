@@ -65,7 +65,7 @@ class Metrics:
             for k in results[i]:
                 s = results[i][k]
                 if not np.isnan(s):
-                    if k not in report: report[k] = 0.0
+                    if k not in report: report[k] = 0.0 * s
                     report[k] += s
                     reduction_keys.add(k)
                 else:
@@ -209,6 +209,39 @@ class Metrics:
         if len(gts) > 0 and len(preds) > 0:
             return self.iou(pred=preds[0], gt=gts[0], thres=thres)
         return 0.0
+
+    def top2(self, preds, gts, thres=.5, **argw):
+        k = 2
+        if len(gts) >= k and len(preds) >= k:
+            return self.iou(pred=preds[k - 1], gt=gts[k - 1], thres=thres)
+        elif len(gts) < k and len(preds) < k:
+            return 1.0
+        return 0.0
+
+    def top3(self, preds, gts, thres=.5, **argw):
+        k = 3
+        if len(gts) >= k and len(preds) >= k:
+            return self.iou(pred=preds[k - 1], gt=gts[k - 1], thres=thres)
+        elif len(gts) < k and len(preds) < k:
+            return 1.0
+        return 0.0
+
+    def top4(self, preds, gts, thres=.5, **argw):
+        k = 4
+        if len(gts) >= k and len(preds) >= k:
+            return self.iou(pred=preds[k - 1], gt=gts[k - 1], thres=thres)
+        elif len(gts) < k and len(preds) < k:
+            return 1.0
+        return 0.0
+
+    def top5(self, preds, gts, thres=.5, **argw):
+        k = 5
+        if len(gts) >= k and len(preds) >= k:
+            return self.iou(pred=preds[k - 1], gt=gts[k - 1], thres=thres)
+        elif len(gts) < k and len(preds) < k:
+            return 1.0
+        return 0.0
+
 
 if __name__=="__main__":
     import os, tqdm
