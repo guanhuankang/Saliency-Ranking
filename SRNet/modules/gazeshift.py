@@ -88,7 +88,7 @@ class GazeShift(nn.Module):
             qpe: B, nq, C
             zpe: B, hw, C
             q_vis: B, nq, 1 (int: 0-n)
-            bbox: B, nq, 4
+            bbox: B, nq, 4 [0, 1]
             size: Tuple(h, w)
 
         Returns:

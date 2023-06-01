@@ -112,9 +112,9 @@ class SRNet(nn.Module):
             ## end training
         else:
             ## inference
-            z = zs["res3"]
             size = tuple(zs["res3"].shape[2::])
-            zpe = self.pe_layer(size).unsqueeze(0).expand(bs, -1, -1, -1)
+            z = zs["res3"].flatten(2).transpose(-1, -2)
+            zpe = self.pe_layer(size).unsqueeze(0).expand(bs, -1, -1, -1).flatten(2).transpose(-1, -2)
             q_vis = torch.zeros_like(pred_objs)
             bs, nq, _ = q.shape
             bs_idx = torch.arange(bs, device=self.device, dtype=torch.long)
@@ -128,7 +128,7 @@ class SRNet(nn.Module):
                     "num": 0
                 } for x in batch_dict]
             for i in range(nq):
-                sal = self.gaze_shift(q=q, z=z, qpe=qpe, zpe=zpe, q_vis=q_vis, bbox=pred_bboxes, size=size)
+                sal = self.gaze_shift(q=q, z=z, qpe=qpe, zpe=zpe, q_vis=q_vis, bbox=torch.sigmoid(pred_bboxes), size=size)
                 sal_max = torch.argmax(sal[:, :, 0], dim=1).long()  ##  B
 
                 sal_scores = sal[bs_idx, sal_max, 0].sigmoid()  ## B
@@ -147,10 +147,10 @@ class SRNet(nn.Module):
                         (the_bboxes[idx].sigmoid().detach().cpu() * torch.tensor([wi, hi, hi, wi])).tolist()
                     )
                     results[idx]["scores"].append(
-                        float(obj_scores[idx].detach.cpu())
+                        float(obj_scores[idx].detach().cpu())
                     )
                     results[idx]["saliency"].append(
-                        float(sal_scores[idx].detach.cpu())
+                        float(sal_scores[idx].detach().cpu())
                     )
                     results[idx]["num"] += 1
                 if len(valid_idx) <= 0:
