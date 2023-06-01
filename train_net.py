@@ -22,7 +22,6 @@ from dataset import register_sor_dataset, sor_dataset_mapper_train, sor_dataset_
 from evaluation import SOREvaluator
 from SRNet import *
 
-
 class Trainer(DefaultTrainer):
     @classmethod
     def build_evaluator(cls, cfg, dataset_name):

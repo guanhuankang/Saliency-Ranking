@@ -131,31 +131,22 @@ if __name__ == "__main__":
                 # uncomment to store each instance individually
                 image_name = path.split("/")[-1][0:-4]
                 rank = 1
-                for m_, f_, c_, o, u, s in zip(
+                for m, b, s, a in zip(
                         predictions["masks"],
-                        predictions["fixations"],
-                        predictions["centers"],
-                        predictions["obj_scores"],
+                        predictions["bboxes"],
                         predictions["scores"],
-                        predictions["overall_scores"],
+                        predictions["saliency"]
                 ):
-                    ms = [m_, f_]
-                    idts = ["mask", "fixation"]
-                    c_ = np.array(c_).astype(int)
-                    radiu = 10
-                    for m, idt in zip(ms, idts):
-                        m = (m * 255).numpy().astype(np.uint8)
-                        out = Image.fromarray(m).convert("RGB")
-                        draw = ImageDraw.Draw(out)
-                        draw.ellipse([tuple(c_-radiu), tuple(c_+radiu)], fill="red")
-                        out.save(os.path.join(args.output, "{image_name}_rank{rank}_{idt}_obj{obj}_iou{iou}_sal{sal}.png".format(
-                            image_name=image_name,
-                            rank=rank,
-                            idt=idt,
-                            obj=round(float(o), 2),
-                            iou=round(float(u), 2),
-                            sal=round(float(s), 2)
-                        )))
+                    m = (m * 255).numpy().astype(np.uint8)
+                    out = Image.fromarray(m).convert("RGB")
+                    draw = ImageDraw.Draw(out)
+                    draw.rectangle([(b[0]-b[3]/2., b[1]-b[2]/2.), (b[0]+b[3]/2., b[1]+b[2]/2.)], width=3)
+                    out.save(os.path.join(args.output, "{image_name}_rank{rank}_obj{obj}_sal{sal}.png".format(
+                        image_name=image_name,
+                        rank=rank,
+                        obj=round(float(s), 2),
+                        sal=round(float(a), 2)
+                    )))
                     rank += 1
 
             if args.output:
