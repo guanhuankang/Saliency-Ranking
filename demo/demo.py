@@ -140,7 +140,7 @@ if __name__ == "__main__":
                     m = (m * 255).numpy().astype(np.uint8)
                     out = Image.fromarray(m).convert("RGB")
                     draw = ImageDraw.Draw(out)
-                    draw.rectangle([(b[0]-b[3]/2., b[1]-b[2]/2.), (b[0]+b[3]/2., b[1]+b[2]/2.)], width=3)
+                    draw.rectangle(b, width=3)
                     out.save(os.path.join(args.output, "{image_name}_rank{rank}_obj{obj}_sal{sal}.png".format(
                         image_name=image_name,
                         rank=rank,

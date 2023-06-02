@@ -6,10 +6,10 @@ import torch.nn.functional as F
 from detectron2.modeling import META_ARCH_REGISTRY, build_backbone
 
 from .neck import FrcPN
-from .modules import BBoxDecoder, MaskDecoder, GazeShift
+from .modules import BBoxDecoder, MaskDecoder, GazeShift, Foveal
 from .component import PositionEmbeddingRandom
-from .utils import calc_iou, debugDump, pad1d, mask2Boxes
-from .loss import hungarianMatcher, batch_mask_loss
+from .utils import calc_iou, debugDump, pad1d, mask2Boxes, xyhw2xyxy, xyxy2xyhw
+from .loss import hungarianMatcher, batch_mask_loss, batch_bbox_loss
 
 @META_ARCH_REGISTRY.register()
 class SRNet(nn.Module):
@@ -20,7 +20,8 @@ class SRNet(nn.Module):
         self.neck = FrcPN(cfg)
         self.pe_layer = PositionEmbeddingRandom(cfg.MODEL.COMMON.EMBED_DIM//2)
         self.bbox_decoder = BBoxDecoder(cfg)
-        self.mask_decoder = MaskDecoder(cfg)
+        # self.mask_decoder = MaskDecoder(cfg)
+        self.foveal = Foveal(cfg)
         self.gaze_shift = GazeShift(cfg)
 
         self.register_buffer("pixel_mean", torch.tensor(cfg.MODEL.PIXEL_MEAN).reshape(1, -1, 1, 1), False)
@@ -38,22 +39,35 @@ class SRNet(nn.Module):
 
         zs = self.backbone(images)
         zs = self.neck(zs)
-        q, qpe, pred_bboxes, pred_objs = self.bbox_decoder(
+        q, qpe, aux_bboxes, pred_objs = self.bbox_decoder(
             z=zs["res5"].flatten(2).transpose(-1, -2),
             zpe=self.pe_layer(zs["res5"].shape[2::]).unsqueeze(0).expand(bs, -1, -1, -1).flatten(2).transpose(-1, -2)
         )
-        pred_masks = self.mask_decoder(
-            q=q,
-            z=zs["res3"].flatten(2).transpose(-1, -2),
-            qpe=qpe,
-            zpe=self.pe_layer(zs["res3"].shape[2::]).unsqueeze(0).expand(bs, -1, -1, -1).flatten(2).transpose(-1, -2),
-            size=tuple(zs["res3"].shape[2::])
+        aux_bboxes = torch.sigmoid(aux_bboxes)  ## xyhw
+
+        zs_pe = dict(
+            (k, self.pe_layer(zs[k].shape[2::]).unsqueeze(0).expand(bs, -1, -1, -1))
+            for k in zs
         )
+        q, pred_masks, pred_bboxes = self.foveal(
+            q=q,
+            qpe=qpe,
+            feats=zs,
+            feats_pe=zs_pe
+        )
+        pred_bboxes = torch.sigmoid(pred_bboxes)  ## xyhw
+        # pred_masks = self.mask_decoder(
+        #     q=q,
+        #     z=zs["res3"].flatten(2).transpose(-1, -2),
+        #     qpe=qpe,
+        #     zpe=self.pe_layer(zs["res3"].shape[2::]).unsqueeze(0).expand(bs, -1, -1, -1).flatten(2).transpose(-1, -2),
+        #     size=tuple(zs["res3"].shape[2::])
+        # )
 
         if self.training:
             ## Training
             masks = [x["masks"].to(self.device) for x in batch_dict]  ## list of k_i, Ht, Wt
-            bboxes = [mask2Boxes(m) for m in masks]  ## list of k_i, 4
+            bboxes = [mask2Boxes(m) for m in masks]  ## list of k_i, 4[xyxy]
             n_max = max([len(x) for x in masks])
             gt_size = masks[0].shape[-2::]
 
@@ -70,7 +84,8 @@ class SRNet(nn.Module):
             obj_pos_weight = torch.tensor(self.cfg.LOSS.WEIGHTS.OBJ_POS, device=self.device)
             mask_loss = batch_mask_loss(pred_masks[bi, qi], q_masks[bi, ti]).mean()
             obj_loss = F.binary_cross_entropy_with_logits(pred_objs, q_corresponse.gt(.5).float(), pos_weight=obj_pos_weight)
-            bbox_loss = F.smooth_l1_loss(torch.sigmoid(pred_bboxes[bi, qi]), q_boxes[bi, ti])
+            bbox_loss = batch_bbox_loss(xyhw2xyxy(pred_bboxes[bi, qi]), q_boxes[bi, ti]).mean() +\
+                        batch_bbox_loss(xyhw2xyxy(aux_bboxes[bi, qi]), q_boxes[bi, ti]).mean()
             sal_loss = torch.zeros_like(obj_loss).mean()  ## initialize as zero
 
             ## saliency loss
@@ -83,7 +98,7 @@ class SRNet(nn.Module):
                     qpe=qpe,
                     zpe=self.pe_layer(zs["res3"].shape[2::]).unsqueeze(0).expand(bs, -1, -1, -1).flatten(2).transpose(-1, -2),
                     q_vis=q_vis,
-                    bbox=torch.sigmoid(pred_bboxes),
+                    bbox=pred_bboxes,  ## xyhw
                     size=tuple(zs["res3"].shape[2::])
                 )
                 sal_loss += F.binary_cross_entropy_with_logits(sal, q_ans)
@@ -128,14 +143,14 @@ class SRNet(nn.Module):
                     "num": 0
                 } for idx,x in enumerate(batch_dict)]
             for i in range(nq):
-                sal = self.gaze_shift(q=q, z=z, qpe=qpe, zpe=zpe, q_vis=q_vis, bbox=torch.sigmoid(pred_bboxes), size=size)
+                sal = self.gaze_shift(q=q, z=z, qpe=qpe, zpe=zpe, q_vis=q_vis, bbox=pred_bboxes, size=size)
                 sal_max = torch.argmax(sal[:, :, 0], dim=1).long()  ##  B
                 q_vis[bs_idx, sal_max, 0] = i+1
 
                 sal_scores = sal[bs_idx, sal_max, 0].sigmoid()  ## B
                 obj_scores = pred_objs[bs_idx, sal_max, 0].sigmoid()  ## B
                 the_masks  = pred_masks[bs_idx, sal_max, :, :]  ## B, H, W
-                the_bboxes = pred_bboxes[bs_idx, sal_max, :]    ## B, 4
+                the_bboxes = xyhw2xyxy(pred_bboxes[bs_idx, sal_max, :])    ## B, 4 [xyxy]
 
                 t_sal = 0.1
                 t_obj = 0.5
@@ -147,7 +162,7 @@ class SRNet(nn.Module):
                         F.interpolate(the_masks[idx:idx+1, :, :].unsqueeze(1), size=(hi, wi), mode="bilinear")[0, 0].sigmoid().detach().cpu().gt(.5).float()
                     )
                     results[idx]["bboxes"].append(
-                        (the_bboxes[idx].sigmoid().detach().cpu() * torch.tensor([wi, hi, hi, wi])).tolist()
+                        (the_bboxes[idx].detach().cpu() * torch.tensor([wi, hi, wi, hi])).tolist()
                     )
                     results[idx]["scores"].append(
                         float(obj_scores[idx].detach().cpu())

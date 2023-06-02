@@ -23,9 +23,9 @@ class GazeShiftLayer(nn.Module):
 
         init_weights_(self)
 
-    def forward(self, q, z, qpe, zpe):
-        q = self.norm1(q + self.dropout1(self.self_attn(q=q + qpe, k=z + zpe, v=z)))
-        q = self.norm2(q + self.dropout2(self.q2z_attn(q=q + qpe, k=q + qpe, v=q)))
+    def forward(self, q, z, qpe, zpe, ior):
+        q = self.norm1(q + self.dropout1(self.self_attn(q=q + qpe, k=q + qpe, v=q+ior)))
+        q = self.norm2(q + self.dropout2(self.q2z_attn(q=q + qpe, k=z + zpe, v=z)))
         q = self.norm3(q + self.dropout3(self.mlp(q)))
         return q
 
@@ -88,7 +88,7 @@ class GazeShift(nn.Module):
             qpe: B, nq, C
             zpe: B, hw, C
             q_vis: B, nq, 1 (int: 0-n)
-            bbox: B, nq, 4 [0, 1]
+            bbox: B, nq, 4 [xyhw]
             size: Tuple(h, w)
 
         Returns:
@@ -105,5 +105,5 @@ class GazeShift(nn.Module):
 
         ior = (q_vis / (q_vis.max(dim=1)[0].unsqueeze(1) + 1e-6)) * self.ior_embedding  ## B, nq, C
         for layer in self.layers:
-            q = layer(q=q+ior, z=z, qpe=qpe, zpe=zpe)
+            q = layer(q=q, z=z, qpe=qpe, zpe=zpe, ior=ior)
         return self.saliency_head(q)  ## B, nq, 1

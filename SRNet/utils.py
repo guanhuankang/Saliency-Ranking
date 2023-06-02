@@ -64,15 +64,40 @@ def mask2Boxes(masks):
         masks: n, H, W
 
     Returns:
-        bbox: n, 4 [xyhw] \in [0,1]
+        bbox: n, 4 [(x1,y1),(x2,y2)] \in [0,1]
 
     """
     n, H, W = masks.shape
     bbox = masks_to_boxes(masks)
     xi, yi, xa, ya = bbox[:, 0], bbox[:, 1], bbox[:, 2], bbox[:, 3]
-    x, y, h, w = (xi+xa)/2.0, (yi+ya)/2.0, ya-yi, xa-xi
-    x = x / W
-    y = y / H
-    h = h / H
-    w = w / W
-    return torch.clamp(torch.stack([x, y, h, w], dim=1), 0.0, 1.0)
+    xi = xi / W
+    yi = yi / H
+    xa = xa / W
+    ya = ya / H
+    return torch.clamp(torch.stack([xi, yi, xa, ya], dim=1), 0.0, 1.0)
+
+def xyhw2xyxy(bbox):
+    """
+
+    Args:
+        bbox: N, 4 [0,1]
+
+    Returns:
+        bbox: N, 4
+    """
+    x, y, h, w = bbox[:, 0], bbox[:, 1], bbox[:, 2], bbox[:, 3]
+    x1, y1, x2, y2 = x-w/2., y-h/2., x+w/2., y+h/2.
+    return torch.stack([x1, y1, x2, y2], dim=-1)  ## N, 4
+
+def xyxy2xyhw(bbox):
+    """
+
+    Args:
+        bbox: N, 4 [0,1]
+
+    Returns:
+        bbox: N, 4
+    """
+    x1, y1, x2, y2 = bbox[:, 0], bbox[:, 1], bbox[:, 2], bbox[:, 3]
+    x, y, h, w = (x1+x2)/2., (y1+y2)/2., y2-y1, x2-x1
+    return torch.stack([x, y, h, w], dim=-1)  ## N, 4

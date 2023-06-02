@@ -1,6 +1,6 @@
-
 import torch
 import torch.nn.functional as F
+import torchvision
 
 def batch_mask_loss(preds, targets):
     """
@@ -24,3 +24,23 @@ def batch_mask_loss(preds, targets):
 
 def batch_cls_loss(preds, targets):
     return F.binary_cross_entropy_with_logits(preds, targets, reduction="none").flatten(1).mean(dim=-1)
+
+def batch_bbox_loss(box1, box2):
+    """
+    boxes in [(x1,y1),(x2,y2)]
+    Args:
+        box1: N, 4 [0, 1]
+        box2: N, 4 [0, 1]
+
+    Returns:
+        loss: N
+    """
+    version = [int(_) for _ in torchvision.__version__.split("+")[0].split(".")]
+    if version[1] >= 15:
+        gloss = torchvision.ops.generalized_box_iou_loss(box1, box2)  ## N
+    else:
+        gloss = -torch.diag(torchvision.ops.generalized_box_iou(box1, box2))  ## N
+    l1loss = F.l1_loss(box1, box2, reduction="none").mean(dim=-1)
+    return gloss+l1loss
+
+

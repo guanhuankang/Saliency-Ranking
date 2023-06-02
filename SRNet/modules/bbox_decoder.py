@@ -66,7 +66,7 @@ class BBoxDecoder(nn.Module):
         Returns:
             q: B, nq, C
             qpe: B, nq, C
-            bbox: B, nq, 4 (x, y, h, w)
+            bbox: B, nq, 4
             fg: B, nq, 1 (logit: fg or bg)
         """
         q = self.q
