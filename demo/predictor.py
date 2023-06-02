@@ -54,14 +54,14 @@ class VisualizationDemo(object):
         instances = Instances(
             image.shape[0:2],
             pred_masks=[(m*255).numpy() for m in predictions["masks"]],
-            pred_scores=[float(s) for s in predictions["obj_scores"]],
+            pred_scores=[float(s) for s in predictions["scores"]],
             pred_classes=torch.arange(predictions["num"])+1
         )
         vis_output = visualizer.draw_instance_predictions(predictions=instances)
 
         print("Detected {} instances with obj-scores: {}".format(
             predictions["num"],
-            [float(s) for s in predictions["obj_scores"]]
+            [float(s) for s in predictions["scores"]]
         ))
 
         return predictions, vis_output

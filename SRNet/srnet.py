@@ -120,28 +120,31 @@ class SRNet(nn.Module):
             bs_idx = torch.arange(bs, device=self.device, dtype=torch.long)
 
             results = [{
-                    "image_name": x["image_name"],
+                    "image_name": x.get("image_name", idx),
                     "masks": [],
                     "bboxes": [],
                     "scores": [],
                     "saliency": [],
                     "num": 0
-                } for x in batch_dict]
+                } for idx,x in enumerate(batch_dict)]
             for i in range(nq):
                 sal = self.gaze_shift(q=q, z=z, qpe=qpe, zpe=zpe, q_vis=q_vis, bbox=torch.sigmoid(pred_bboxes), size=size)
                 sal_max = torch.argmax(sal[:, :, 0], dim=1).long()  ##  B
+                q_vis[bs_idx, sal_max, 0] = i+1
 
                 sal_scores = sal[bs_idx, sal_max, 0].sigmoid()  ## B
                 obj_scores = pred_objs[bs_idx, sal_max, 0].sigmoid()  ## B
                 the_masks  = pred_masks[bs_idx, sal_max, :, :]  ## B, H, W
                 the_bboxes = pred_bboxes[bs_idx, sal_max, :]    ## B, 4
 
-                valid_items = sal_scores.gt(.5).float() * obj_scores.gt(.5).float()
+                t_sal = 0.5
+                t_obj = 0.5
+                valid_items = sal_scores.gt(t_sal).float() * obj_scores.gt(t_obj).float()
                 valid_idx = torch.where(valid_items.gt(.5))[0]
                 for idx in valid_idx:
                     hi, wi = batch_dict[idx]["height"], batch_dict[idx]["width"]
                     results[idx]["masks"].append(
-                        F.interpolate(the_masks[idx:idx+1, :, :].unsqueeze(1), size=(hi, wi), mode="bilinear")[0, 0].sigmoid().detach().cpu()
+                        F.interpolate(the_masks[idx:idx+1, :, :].unsqueeze(1), size=(hi, wi), mode="bilinear")[0, 0].sigmoid().detach().cpu().gt(.5).float()
                     )
                     results[idx]["bboxes"].append(
                         (the_bboxes[idx].sigmoid().detach().cpu() * torch.tensor([wi, hi, hi, wi])).tolist()
