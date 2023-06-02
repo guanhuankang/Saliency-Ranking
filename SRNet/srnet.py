@@ -137,7 +137,7 @@ class SRNet(nn.Module):
                 the_masks  = pred_masks[bs_idx, sal_max, :, :]  ## B, H, W
                 the_bboxes = pred_bboxes[bs_idx, sal_max, :]    ## B, 4
 
-                t_sal = 0.5
+                t_sal = 0.1
                 t_obj = 0.5
                 valid_items = sal_scores.gt(t_sal).float() * obj_scores.gt(t_obj).float()
                 valid_idx = torch.where(valid_items.gt(.5))[0]
