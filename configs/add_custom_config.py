@@ -44,6 +44,9 @@ def add_custom_config(cfg, num_gpus=1):
     cfg.MODEL.MODULES.FOVEAL = CN()
     cfg.MODEL.MODULES.FOVEAL.NUM_BLOCKS = 2
     cfg.MODEL.MODULES.FOVEAL.KEY_FEATURES = ["res5", "res4", "res3"]
+    cfg.MODEL.MODULES.FOVEALQ = CN()
+    cfg.MODEL.MODULES.FOVEALQ.NUM_BLOCKS = 4
+    cfg.MODEL.MODULES.FOVEALQ.KEY_FEATURES = ["res5", "res4", "res3"]
 
     cfg.MODEL.COMMON = CN()
     cfg.MODEL.COMMON.EMBED_DIM = 256
@@ -51,6 +54,7 @@ def add_custom_config(cfg, num_gpus=1):
     cfg.MODEL.COMMON.HIDDEN_DIM = 1024
     cfg.MODEL.COMMON.DROPOUT_ATTN = 0.0
     cfg.MODEL.COMMON.DROPOUT_FFN = 0.0
+    cfg.MODEL.COMMON.NUM_QUERIES = 100
 
     cfg.LOSS = CN()
     cfg.LOSS.WEIGHTS = CN()
