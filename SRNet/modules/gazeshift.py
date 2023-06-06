@@ -24,7 +24,8 @@ class GazeShiftLayer(nn.Module):
         init_weights_(self)
 
     def forward(self, q, z, qpe, zpe, ior):
-        q = self.norm1(q + self.dropout1(self.self_attn(q=q + qpe, k=q + qpe, v=q+ior)))
+        q = q + ior
+        q = self.norm1(q + self.dropout1(self.self_attn(q=q + qpe, k=q + qpe, v=q)))
         q = self.norm2(q + self.dropout2(self.q2z_attn(q=q + qpe, k=z + zpe, v=z)))
         q = self.norm3(q + self.dropout3(self.mlp(q)))
         return q
@@ -88,7 +89,7 @@ class GazeShift(nn.Module):
             qpe: B, nq, C
             zpe: B, hw, C
             q_vis: B, nq, 1 (int: 0-n)
-            bbox: B, nq, 4 [xyhw]
+            bbox: B, nq, 4 [xyhw] in [0,1]
             size: Tuple(h, w)
 
         Returns:
@@ -96,7 +97,7 @@ class GazeShift(nn.Module):
         """
         device = q.device
         gaze_map = self.getGazeMap(torch.stack([
-            torch.sigmoid(bb[vis.argmax(), :]) if vis.max() > .5 else torch.ones(4, device=device)*0.5
+            bb[vis.argmax(), :] if vis.max() > .5 else torch.ones(4, device=device)*0.5
             for bb, vis in zip(bbox, q_vis[:, :, 0])
         ], dim=0).unsqueeze(1), size=size)  ## B, 1, h, w
         z = z.transpose(-1, -2).unflatten(2, size)  ## B, C, h, w
