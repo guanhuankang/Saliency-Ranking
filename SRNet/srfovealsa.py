@@ -60,6 +60,7 @@ class SRFovealSA(nn.Module):
             feats_pe=zs_pe
         )
         pred_bboxes = torch.sigmoid(pred_bboxes)  ## B, nq, 4 [xyhw] in [0,1]
+        gaze_shift_key = self.cfg.MODEL.MODULES.GAZE_SHIFT.KEY
 
         # q, pred_masks, pred_bboxes = self.foveal(
         #     q=q,
@@ -106,12 +107,12 @@ class SRFovealSA(nn.Module):
                 q_ans = q_corresponse.eq(i+1).float()
                 sal = self.gaze_shift(
                     q=q,
-                    z=zs["res3"].flatten(2).transpose(-1, -2),
+                    z=zs[gaze_shift_key].flatten(2).transpose(-1, -2),
                     qpe=qpe,
-                    zpe=zs_pe["res3"].flatten(2).transpose(-1, -2),
+                    zpe=zs_pe[gaze_shift_key].flatten(2).transpose(-1, -2),
                     q_vis=q_vis,
                     bbox=pred_bboxes,  ## xyhw
-                    size=tuple(zs["res3"].shape[2::])
+                    size=tuple(zs[gaze_shift_key].shape[2::])
                 )
                 sal_loss += F.binary_cross_entropy_with_logits(sal, q_ans)
 
@@ -139,8 +140,8 @@ class SRFovealSA(nn.Module):
             ## end training
         else:
             ## inference
-            size = tuple(zs["res3"].shape[2::])
-            z = zs["res3"].flatten(2).transpose(-1, -2)
+            size = tuple(zs[gaze_shift_key].shape[2::])
+            z = zs[gaze_shift_key].flatten(2).transpose(-1, -2)
             zpe = self.pe_layer(size).unsqueeze(0).expand(bs, -1, -1, -1).flatten(2).transpose(-1, -2)
             q_vis = torch.zeros_like(pred_objs)
             bs, nq, _ = q.shape
