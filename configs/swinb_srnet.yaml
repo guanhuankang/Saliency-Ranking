@@ -47,14 +47,9 @@ MODEL:
 LOSS:
     WEIGHTS:
         OBJ_POS: 10.0
-        OBJ: 5.0
-        SAL: 2.0
-        MASK: 10.0
-        IOU: 1.0
-        SEL: 2.0
 DATASETS:
-    TRAIN: ("assr_train",)
-    TEST: ("assr_test",)
+    TRAIN: ("irsr_train",)
+    TEST: ("irsr_test",)
     ENV:
         WORK: "D:/SaliencyRanking/dataset/coco_sor"
         GROUP4090: "/home/ryn02/hkguan/saliencyranking/dataset/coco_sor"
