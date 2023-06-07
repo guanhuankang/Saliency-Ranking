@@ -32,7 +32,7 @@ class GazeShiftLayer(nn.Module):
 
 class GazeShift(nn.Module):
     @configurable
-    def __init__(self, sigma=10.0, kernel_size=5, embed_dim=256, num_heads=8, hidden_dim=1024, dropout_attn=0.0, dropout_ffn=0.0, num_blocks=2):
+    def __init__(self, alpha=1.0, sigma=10.0, kernel_size=5, embed_dim=256, num_heads=8, hidden_dim=1024, dropout_attn=0.0, dropout_ffn=0.0, num_blocks=2):
         super().__init__()
         self.layers = nn.ModuleList([
             GazeShiftLayer(embed_dim=embed_dim, num_heads=num_heads, hidden_dim=hidden_dim, dropout_attn=dropout_attn, dropout_ffn=dropout_ffn)
@@ -41,6 +41,7 @@ class GazeShift(nn.Module):
         self.peripheral_vision = torchvision.transforms.GaussianBlur(kernel_size=kernel_size, sigma=sigma)
         self.ior_embedding = nn.Parameter(torch.randn(1, 1, embed_dim))
         self.saliency_head = nn.Linear(embed_dim, 1)
+        self.alpha = alpha
 
     @classmethod
     def from_config(cls, cfg):
@@ -53,12 +54,14 @@ class GazeShift(nn.Module):
 
             "num_blocks":   cfg.MODEL.MODULES.GAZE_SHIFT.NUM_BLOCKS,
             "sigma":        cfg.MODEL.MODULES.GAZE_SHIFT.SIGMA,
-            "kernel_size":  cfg.MODEL.MODULES.GAZE_SHIFT.KERNEL_SIZE
+            "kernel_size":  cfg.MODEL.MODULES.GAZE_SHIFT.KERNEL_SIZE,
+            "alpha":        cfg.MODEL.MODULES.GAZE_SHIFT.ALPHA
         }
 
     def getGazeMap(self, bbox, size):
         """
-        f(x) = exp(-||x-x0||^2_{\sigma}), where sigma=diag(1/w^2, 1/h^2)
+        f(x) = exp(-alpha||x-x0||^2_{\sigma}), where sigma=diag(1/w^2, 1/h^2)
+        near bbox: f(x|near bbox)=exp(-alpha/2.0)
         Args:
             bbox: B, 1, 4
             size: Tuple(int, int)
@@ -77,7 +80,7 @@ class GazeShift(nn.Module):
         rep_h = 1.0 / (bbox[:, :, -2].unsqueeze(-1).unsqueeze(-1) + 1e-6)  ## B, 1, 1, 1
         e = (xy - c) * torch.cat([rep_w, rep_h], dim=1)  ## B, 2, H, W
         e = (e**2).sum(dim=1, keepdims=True)  ## B, 1, H, W
-        e = torch.exp(-e)  ## B, 1, H, W
+        e = torch.exp(-e*self.alpha)  ## B, 1, H, W
         return e
 
     def forward(self, q, z, qpe, zpe, q_vis, bbox, size):
@@ -101,7 +104,7 @@ class GazeShift(nn.Module):
             for bb, vis in zip(bbox, q_vis[:, :, 0])
         ], dim=0).unsqueeze(1), size=size)  ## B, 1, h, w
         z = z.transpose(-1, -2).unflatten(2, size)  ## B, C, h, w
-        z = gaze_map * z + (1.0 - gaze_map) * self.peripheral_vision(z)
+        z = gaze_map * z # + (1.0 - gaze_map) * self.peripheral_vision(z)
         z = z.flatten(2).transpose(-1, -2)  ## B, hw, C
 
         ior = (q_vis / (q_vis.max(dim=1)[0].unsqueeze(1) + 1e-6)) * self.ior_embedding  ## B, nq, C

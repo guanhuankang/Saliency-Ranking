@@ -30,6 +30,7 @@ MODEL:
             NUM_BLOCKS: 3
             SIGMA: 10.0
             KERNEL_SIZE: 5
+            ALPHA: 1.0
             KEY: "res5"
         FOVEAL:
             NUM_BLOCKS: 2
