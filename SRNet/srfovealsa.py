@@ -35,6 +35,7 @@ class SRFovealSA(nn.Module):
         return self.pixel_mean.device
 
     def forward(self, batch_dict, *args, **argw):
+        torch.cuda.empty_cache()
         ## prepare image
         bs = len(batch_dict)
         images = torch.stack([s["image"] for s in batch_dict], dim=0).to(self.device).contiguous()
