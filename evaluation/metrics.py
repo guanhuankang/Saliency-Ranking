@@ -83,7 +83,8 @@ class Metrics:
                 else:
                     count[m] += 1.0
                     report[m] += v
-            report[m] = (round((report[m]+eps) / (count[m]+eps), 4), count[m])
+            report[m] = round((report[m]+eps) / (count[m]+eps), 4)
+            report[m+"_count"] = count[m]
         return report
 
     #####################-Numpy-Array-#########################
