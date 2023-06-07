@@ -1,9 +1,6 @@
 import numpy as np
 import scipy.stats as stats
-from scipy.optimize import linear_sum_assignment
 import copy
-
-eps = 1e-12
 
 class Metrics:
     def __init__(self, metrics_of_interest = ["mae", "acc", "fbeta", "iou", "sa_sor", "sor", "ap", "ar", "top1"]):
@@ -28,17 +25,11 @@ class Metrics:
     def toNumpy(self, lst):
         return [x if isinstance(x, type(np.zeros((2,2)))) else np.array(x.detach().cpu()) for x in lst]
 
+    def requireMatcher(self):
+        require_matcher_metrics = ["ap", "ar", "sa_sor"]
+        return len([1.0 for m in require_matcher_metrics if m in self.metrics_of_interest]) > 0
+
     def process(self, preds, gts, thres=.5):
-        """
-
-        Args:
-            preds: list of 0-1 map (numpy)
-            gts: list of 0-1 map (numpy)
-            thres: float 0-1
-
-        Returns:
-
-        """
         if len(gts) <= 0:
             print("warning GT has empty instances", flush=True)
             return {}
@@ -49,7 +40,7 @@ class Metrics:
         gts = self.toNumpy(gts if isinstance(gts, list) else [gts])
         merge_pred = self.mergeMap(preds)
         merge_gt = self.mergeMap(gts)
-        gt_ind, pd_ind, ious = self.matcher(preds, gts, thres=thres)
+        triples = self.matcher(preds, gts, thres=thres) if self.requireMatcher() else None
         results = {}
         for m in self.metrics_of_interest:
             results[m] = self.__getattribute__(m)(
@@ -57,34 +48,38 @@ class Metrics:
                 gt=merge_gt, 
                 preds=preds, 
                 gts=gts, 
-                gt_ind=gt_ind,
-                pd_ind=pd_ind,
-                ious=ious,
+                triples=triples, 
                 thres=thres, 
                 beta2=0.3
             )
         return results
     
     @classmethod
-    def aggregate(self, results, **argw):
+    def aggregate(self, results, reduction="mean"):
         ''' results: list of dict '''
-        report = {}
-        count = {}
         n = len(results)
-        for m in self.metrics_of_interest:
-            report[m] = 0.0
-            count[m] = 0.0
-            for i in range(n):
-                v = results[i][m]
-                if isinstance(v, type(None)):
-                  pass
-                elif np.isnan(v):
-                    count[m] += 1.0
-                    report[m] += 0.0
+        not_empty = 0
+        reduction_keys = set()
+        report = {}
+        for i in range(n):
+            for k in results[i]:
+                s = results[i][k]
+                if not np.isnan(s):
+                    if k not in report: report[k] = 0.0 * s
+                    report[k] += s
+                    reduction_keys.add(k)
                 else:
-                    count[m] += 1.0
-                    report[m] += v
-            report[m] = (round((report[m]+eps) / (count[m]+eps), 4), count[m])
+                    invalid_k = "invalid_"+k
+                    if invalid_k not in report: report[invalid_k] = 0
+                    report[invalid_k] += 1
+            not_empty += 1 if len(results[i].keys()) > 0 else 0
+        assert reduction in ["sum", "mean"], "reduction_{} only support sum, mean".format(reduction)
+        if reduction=="mean":
+            for k in reduction_keys:
+                report[k] /= float(n)
+        else:
+            pass ## default SUM
+        report.update({"not_empty": not_empty, "total": n})
         return report
 
     #####################-Numpy-Array-#########################
@@ -101,14 +96,39 @@ class Metrics:
         assert gt.max()<=1.0 and gt.min()>=0.0, "max-{}/min-{} value of gt is not btw 0 and 1".format(gt.max(), gt.min())
 
     def matcher(self, preds, gts, thres=.5, **argw):
-        costs = []
-        for i, g in enumerate(gts):
-            for j, p in enumerate(preds):
-                costs.append(1.0 - self.iou(p, g, thres))
-        costs = np.array(costs).reshape(len(gts), len(preds))
-        gt_ind, pd_ind = linear_sum_assignment(costs)
-        ious = 1.0 - costs[gt_ind, pd_ind]
-        return gt_ind, pd_ind, ious
+        ''' return: list of dict likes:
+            {
+                "iou": 0.95,
+                "pred": np.array/None,
+                "gt": np.array/None,
+                "pred_rank": None:0 Rank:1-N (saliency: low -> high)
+                "gt_rank": None:0 Rank:1-N (saliency: low -> high)
+            }
+            where None means matching none
+        '''
+        triples = [(self.iou(p,g,thres), i, j) for i,p in enumerate(preds) for j,g in enumerate(gts)]
+        triples.sort(key=lambda t:t[0], reverse=True)
+        ret = []
+        used_p = []
+        used_g = []
+        n_pred = len(preds)
+        n_gt = len(gts)
+        for t in triples:
+            iou, i, j = t
+            if (i not in used_p) and (j not in used_g):
+                ret.append({"iou":iou,"pred":preds[i],"gt":gts[j],"pred_rank":n_pred-i,"gt_rank":n_gt-j})
+                used_p.append(i)
+                used_g.append(j)
+        for i in range(len(preds)):
+            if i not in used_p:
+                ret.append({"iou":0.0,"pred":preds[i],"gt":None,"pred_rank":n_pred-i,"gt_rank":0})
+                used_p.append(i)
+        for j in range(len(gts)):
+            if j not in used_g:
+                ret.append({"iou":0.0,"pred":None,"gt":gts[j],"pred_rank":0,"gt_rank":n_gt-j})
+                used_g.append(j)
+        assert len(used_g)==len(gts) and len(preds)==len(used_p)
+        return ret
 
     def iou(self, pred, gt, thres=.5, **argw):
         self.check(pred, gt)
@@ -137,15 +157,22 @@ class Metrics:
         rec = tp / (tp + fn + 1e-6)
         return ( (1.+beta2) * pre * rec) / ( beta2 * pre + rec + 1e-6 )
 
-    def ap(self, preds, gts, gt_ind, pd_ind, ious, thres=0.5, **argw):
-        n_hits = (ious > 0.5).sum()
-        n_preds= len(preds)
-        return (n_hits+eps) / (n_preds+eps)
+    def ap(self, triples, thres=0.5, **argw):
+        n_hit = sum([1.0 for t in triples if t["iou"]>thres])
+        n_pred = sum([1.0 for t in triples if not isinstance(t["pred"], type(None))])
+        n_gt = sum([1.0 for t in triples if not isinstance(t["gt"], type(None))])
+        if n_gt>0:
+            return n_hit / (n_pred + 1e-6)
+        else:
+            return 0.0 if n_pred>0.0 else 1.0
     
-    def ar(self, preds, gts, gt_ind, pd_ind, ious, thres=0.5, **argw):
-        n_hits = (ious > 0.5).sum()
-        n_gts = len(gts)
-        return (n_hits+eps) / (n_gts+eps)
+    def ar(self, triples, thres=.5, **argw):
+        n_hit = sum([1.0 for t in triples if t["iou"]>thres])
+        n_gt = sum([1.0 for t in triples if not isinstance(t["gt"], type(None))])
+        if n_gt>0:
+            return n_hit / n_gt
+        else:
+            return 1.0
 
     def sor(self, preds, gts, thres=.5, **argw):
         gt_ranks = []
@@ -169,55 +196,51 @@ class Metrics:
         else:
             return np.nan
     
-    def sa_sor(self, preds, gts, gt_ind, pd_ind, ious, thres=0.5, **argw):
-        n = len(gts)
-        m = len(preds)
-        ind = np.where(ious > .5)[0]
-        gt_ind = gt_ind[ind]
-        pd_ind = pd_ind[ind]
-
-        gt_ranks = (n-gt_ind).astype(int).tolist()
-        pd_ranks = (m-pd_ind).astype(int).tolist()
-        for i in range(1, n+1):
-            if i not in gt_ind:
-                gt_ranks.append(i)
-                pd_ranks.append(0)
-        return np.corrcoef(pd_ranks, gt_ranks)[0, 1]
+    def sa_sor(self, triples, thres=.5, **argw):
+        pred_ranks = []
+        gt_ranks = []
+        for t in triples:
+            if isinstance(t["gt"], type(None)): continue
+            pred_ranks.append(t["pred_rank"] if t["iou"]>thres else 0)
+            gt_ranks.append(t["gt_rank"])
+        return np.corrcoef(pred_ranks, gt_ranks)[0, 1]
 
     def top1(self, preds, gts, thres=.5, **argw):
-        k = 1
-        if len(gts) >= k and len(preds) >= k:
-            return self.iou(pred=preds[k - 1], gt=gts[k - 1], thres=thres)
-        else:
-            return None
+        if len(gts) > 0 and len(preds) > 0:
+            return self.iou(pred=preds[0], gt=gts[0], thres=thres)
+        return 0.0
 
     def top2(self, preds, gts, thres=.5, **argw):
         k = 2
         if len(gts) >= k and len(preds) >= k:
             return self.iou(pred=preds[k - 1], gt=gts[k - 1], thres=thres)
-        else:
-            return None
+        elif len(gts) < k and len(preds) < k:
+            return 1.0
+        return 0.0
 
     def top3(self, preds, gts, thres=.5, **argw):
         k = 3
         if len(gts) >= k and len(preds) >= k:
             return self.iou(pred=preds[k - 1], gt=gts[k - 1], thres=thres)
-        else:
-            return None
+        elif len(gts) < k and len(preds) < k:
+            return 1.0
+        return 0.0
 
     def top4(self, preds, gts, thres=.5, **argw):
         k = 4
         if len(gts) >= k and len(preds) >= k:
             return self.iou(pred=preds[k - 1], gt=gts[k - 1], thres=thres)
-        else:
-            return None
+        elif len(gts) < k and len(preds) < k:
+            return 1.0
+        return 0.0
 
     def top5(self, preds, gts, thres=.5, **argw):
         k = 5
         if len(gts) >= k and len(preds) >= k:
             return self.iou(pred=preds[k - 1], gt=gts[k - 1], thres=thres)
-        else:
-            return None
+        elif len(gts) < k and len(preds) < k:
+            return 1.0
+        return 0.0
 
 
 if __name__=="__main__":
