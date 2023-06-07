@@ -35,7 +35,8 @@ def setup(args):
     }.get(dict(os.environ).get("ENVNAME").upper(), cfg.DATASETS.ROOT)
     cfg.DATASETS.ROOT = root
     print("ROOT:", root)
-    # cfg.merge_from_list(args.opts)
+    cfg.merge_from_list(args.opts)
+
     cfg.freeze()
     default_setup(cfg, args)
     # logger.setup_logger(output=cfg.OUTPUT_DIR, distributed_rank=comm.get_rank(), name="toy")
@@ -53,20 +54,21 @@ def main(args):
     groundtruth = DatasetCatalog.get(dataset_name)
 
     sor_evaluator = SOREvaluator(cfg, dataset_name)
-    name_paths = dict((args.opts[i], args.opts[i + 1]) for i in range(len(args.opts)) if (int(i) & 1) == 0)
-    for name, path in name_paths.items():
-        pred_instances = torch.load(path)
-        for gt_zip in tqdm.tqdm(groundtruth):
-            gt = sor_dataset_mapper_test(gt_zip, cfg)
-            instances = pred_instances[gt["image_name"]]
-            instances["masks"] = [decode(x).astype(float) for x in instances["masks"]]
-            sor_evaluator.process([gt], [instances])
+    name = "unknown"
+    path = cfg.MODEL.WEIGHTS
 
-        results = sor_evaluator.evaluate()
-        print(results)
-        os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
-        with open(os.path.join(cfg.OUTPUT_DIR, f"dataset_{dataset_name}_method_{name}.csv"), "w") as f:
-            f.write(str(results))
+    pred_instances = torch.load(path)
+    for gt_zip in tqdm.tqdm(groundtruth):
+        gt = sor_dataset_mapper_test(gt_zip, cfg)
+        instances = pred_instances[gt["image_name"]]
+        instances["masks"] = [ torch.tensor(decode(x).astype(float)) for x in instances["masks"]]
+        sor_evaluator.process([gt], [instances])
+
+    results = sor_evaluator.evaluate()
+    print(results)
+    os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
+    with open(os.path.join(cfg.OUTPUT_DIR, f"dataset_{dataset_name}_method_{name}.csv"), "w") as f:
+        f.write(str(results))
 
 if __name__ == "__main__":
     args = default_argument_parser().parse_args()
