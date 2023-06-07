@@ -47,6 +47,7 @@ MODEL:
 LOSS:
     WEIGHTS:
         OBJ_POS: 10.0
+        SALIENCY: 5.0
 DATASETS:
     TRAIN: ("irsr_train",)
     TEST: ("irsr_test",)
