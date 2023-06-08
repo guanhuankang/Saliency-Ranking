@@ -103,8 +103,8 @@ class SRFovealSA(nn.Module):
 
             ## saliency loss
             for i in range(n_max+1):
-                q_vis_gt = q_corresponse.gt(i).float() * torch.rand_like(q_corresponse).le(0.15).float()
-                q_vis = q_corresponse * q_corresponse.le(i).float() + q_vis_gt
+                # q_vis_gt = q_corresponse.gt(i).float() * torch.rand_like(q_corresponse).le(0.15).float()
+                q_vis = q_corresponse * q_corresponse.le(i).float()  # + q_vis_gt
                 q_ans = q_corresponse.eq(i+1).float()
                 sal = self.gaze_shift(
                     q=q,

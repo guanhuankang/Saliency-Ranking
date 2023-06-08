@@ -104,7 +104,7 @@ class GazeShift(nn.Module):
             for bb, vis in zip(bbox, q_vis[:, :, 0])
         ], dim=0).unsqueeze(1), size=size)  ## B, 1, h, w
         z = z.transpose(-1, -2).unflatten(2, size)  ## B, C, h, w
-        z = gaze_map * z # + (1.0 - gaze_map) * self.peripheral_vision(z)
+        z = gaze_map * z + (1.0 - gaze_map) * self.peripheral_vision(z)
         z = z.flatten(2).transpose(-1, -2)  ## B, hw, C
 
         ior = (q_vis / (q_vis.max(dim=1)[0].unsqueeze(1) + 1e-6)) * self.ior_embedding  ## B, nq, C

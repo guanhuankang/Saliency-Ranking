@@ -36,7 +36,7 @@ MODEL:
             NUM_BLOCKS: 2
             KEY_FEATURES: ["res5", "res4", "res3"]
         FOVEALQ:
-            NUM_BLOCKS: 4
+            NUM_BLOCKS: 6
             KEY_FEATURES: ["res5", "res4", "res3"]
     COMMON:
         EMBED_DIM: 512
@@ -65,8 +65,8 @@ DATALOADER:
 SOLVER:
     AMP:
         ENABLED: true
-    BACKBONE_MULTIPLIER: 0.1
-    BASE_LR: 0.0001
+    BACKBONE_MULTIPLIER: 1.0
+    BASE_LR: 0.000025
     CHECKPOINT_PERIOD: 5000
     CLIP_GRADIENTS:
         CLIP_TYPE: full_model
@@ -74,17 +74,17 @@ SOLVER:
         ENABLED: true
         NORM_TYPE: 2.0
     GAMMA: 0.1
-    IMS_PER_BATCH: 32
+    IMS_PER_BATCH: 16
     IMS_PER_GPU: 8
     LR_SCHEDULER_NAME: WarmupMultiStepLR
     MOMENTUM: 0.9
     OPTIMIZER: ADAMW
-    STEPS: (95000, 98000)
-    MAX_ITER: 100000
+    STEPS: (12500, 22500)
+    MAX_ITER: 30000
     REFERENCE_WORLD_SIZE: 0
     WARMUP_FACTOR: 1.0
-    WARMUP_ITERS: 10
-    WEIGHT_DECAY: 0.05
+    WARMUP_ITERS: 100
+    WEIGHT_DECAY: 0.0001
 INPUT:
     FT_SIZE_TRAIN: 800
     FT_SIZE_TEST: 800
