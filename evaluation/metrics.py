@@ -187,35 +187,50 @@ class Metrics:
     def top1(self, preds, gts, thres=.5, **argw):
         k = 1
         if len(gts) >= k and len(preds) >= k:
-            return self.iou(pred=preds[k - 1], gt=gts[k - 1], thres=thres)
+            v = self.iou(pred=preds[k - 1], gt=gts[k - 1], thres=0.5)
+            return 1.0 if v >= thres else 0.0
+        elif len(gts) >= k:
+            return 0.0
         else:
             return None
 
     def top2(self, preds, gts, thres=.5, **argw):
         k = 2
         if len(gts) >= k and len(preds) >= k:
-            return self.iou(pred=preds[k - 1], gt=gts[k - 1], thres=thres)
+            v = self.iou(pred=preds[k - 1], gt=gts[k - 1], thres=0.5)
+            return 1.0 if v >= thres else 0.0
+        elif len(gts) >= k:
+            return 0.0
         else:
             return None
 
     def top3(self, preds, gts, thres=.5, **argw):
         k = 3
         if len(gts) >= k and len(preds) >= k:
-            return self.iou(pred=preds[k - 1], gt=gts[k - 1], thres=thres)
+            v = self.iou(pred=preds[k - 1], gt=gts[k - 1], thres=0.5)
+            return 1.0 if v >= thres else 0.0
+        elif len(gts) >= k:
+            return 0.0
         else:
             return None
 
     def top4(self, preds, gts, thres=.5, **argw):
         k = 4
         if len(gts) >= k and len(preds) >= k:
-            return self.iou(pred=preds[k - 1], gt=gts[k - 1], thres=thres)
+            v = self.iou(pred=preds[k - 1], gt=gts[k - 1], thres=0.5)
+            return 1.0 if v >= thres else 0.0
+        elif len(gts) >= k:
+            return 0.0
         else:
             return None
 
     def top5(self, preds, gts, thres=.5, **argw):
         k = 5
         if len(gts) >= k and len(preds) >= k:
-            return self.iou(pred=preds[k - 1], gt=gts[k - 1], thres=thres)
+            v = self.iou(pred=preds[k - 1], gt=gts[k - 1], thres=0.5)
+            return 1.0 if v >= thres else 0.0
+        elif len(gts) >= k:
+            return 0.0
         else:
             return None
 
@@ -232,7 +247,7 @@ if __name__=="__main__":
             rets.append(np.where(m==v, 1.0, 0.0).astype(float))
         return rets
 
-    metrics = Metrics(metrics_of_interest = ["mae", "acc", "fbeta", "iou", "sa_sor", "sor", "ap", "ar"])
+    metrics = Metrics()
     input_path = r"D:\SaliencyRanking\retrain_compared_results\IRSR\IRSR\prediction"
     output_path = r"D:\SaliencyRanking\dataset\irsr\Images\test\gt"
     names = [x for x in os.listdir(output_path) if x.endswith(".png")]
