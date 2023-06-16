@@ -1,6 +1,6 @@
 import numpy as np
 from PIL import Image
-import os, scipy, json
+import os, scipy, torch
 from pycocotools.mask import encode
 
 from detectron2.evaluation import DatasetEvaluator
@@ -117,7 +117,6 @@ class SOREvaluator(DatasetEvaluator):
                 #     )
     
     def evaluate(self):
-        out_file = os.path.join(self.cfg.OUTPUT_DIR, self.dataset_name+"_coco_format.json")
-        with open(out_file, "w") as f:
-            json.dump(self.coco_format, f)
+        out_file = os.path.join(self.cfg.OUTPUT_DIR, self.dataset_name+"_coco_format.pth")
+        torch.save(self.coco_format, out_file)
         return self.metrics.aggregate(self.results)
