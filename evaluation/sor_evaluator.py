@@ -1,6 +1,7 @@
 import numpy as np
 from PIL import Image
-import os, scipy
+import os, scipy, json
+from pycocotools.mask import encode
 
 from detectron2.evaluation import DatasetEvaluator
 from .metrics import Metrics
@@ -53,13 +54,20 @@ class SOREvaluator(DatasetEvaluator):
         self.results = []
         self.image_names = []
         self.upper_bound = UpperBoundMatcher()
+        self.coco_format = dict()
 
     def reset(self):
+        self.coco_format = dict()
         self.image_names = []
         self.results = []
         self.metrics.from_config(cfg=self.cfg)
 
     def process(self, inputs, outputs):
+        """
+        Params:
+            @inputs: model input
+            @outputs: model output (it should be in numpy format)
+        """
         thres = self.cfg.TEST.THRESHOLD
         for inp, out in zip(inputs, outputs):
             image_name = inp["image_name"]
@@ -73,12 +81,20 @@ class SOREvaluator(DatasetEvaluator):
             ## EVAL
             self.results.append(self.metrics.process(preds=preds, gts=gts, thres=thres))
             self.image_names.append(image_name)
-            
+
+            ## COCO_FORMAT SAVE
+            self.coco_format[image_name] = {
+                "masks": [encode((x > 0.5).astype(np.uint8)) for x in preds],
+                "bboxes": out["bboxes"],
+                "scores": out["scores"],
+                "saliency": out["saliency"],
+                "num": out["num"]
+            }
+
             ## SAVE
             if self.cfg.TEST.EVAL_SAVE:
-                out_path = os.path.join(self.cfg.OUTPUT_DIR, "eval", self.dataset_name)
+                out_path = os.path.join(self.cfg.OUTPUT_DIR, "results", self.dataset_name)
                 os.makedirs(out_path, exist_ok=True)
-                preds = [x.cpu().detach().numpy() for x in preds]
                 n = len(preds)
 
                 uni = np.linspace(1.0, 0.5, n)
@@ -101,4 +117,7 @@ class SOREvaluator(DatasetEvaluator):
                 #     )
     
     def evaluate(self):
+        out_file = os.path.join(self.cfg.OUTPUT_DIR, self.dataset_name+"_coco_format.json")
+        with open(out_file, "w") as f:
+            json.dump(self.coco_format, f)
         return self.metrics.aggregate(self.results)

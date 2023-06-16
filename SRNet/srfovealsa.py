@@ -173,7 +173,7 @@ class SRFovealSA(nn.Module):
                 for idx in valid_idx:
                     hi, wi = batch_dict[idx]["height"], batch_dict[idx]["width"]
                     results[idx]["masks"].append(
-                        F.interpolate(the_masks[idx:idx+1, :, :].unsqueeze(1), size=(hi, wi), mode="bilinear")[0, 0].sigmoid().detach().cpu().gt(.5).float()
+                        F.interpolate(the_masks[idx:idx+1, :, :].unsqueeze(1), size=(hi, wi), mode="bilinear")[0, 0].sigmoid().detach().cpu().gt(.5).float().numpy()
                     )
                     results[idx]["bboxes"].append(
                         (the_bboxes[idx].detach().cpu() * torch.tensor([wi, hi, wi, hi])).tolist()
