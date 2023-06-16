@@ -84,7 +84,7 @@ class SOREvaluator(DatasetEvaluator):
 
             ## COCO_FORMAT SAVE
             self.coco_format[image_name] = {
-                "masks": [encode((x > 0.5).astype(np.uint8)) for x in preds],
+                "masks": [encode( np.asfortranarray((x > 0.5).astype(np.uint8)) ) for x in preds],
                 "bboxes": out["bboxes"],
                 "scores": out["scores"],
                 "saliency": out["saliency"],
