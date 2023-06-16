@@ -43,12 +43,13 @@ MODEL:
         NUM_HEADS: 8
         HIDDEN_DIM: 1024
         DROPOUT_ATTN: 0.0
-        DROPOUT_FFN: 0.0
+        DROPOUT_FFN: 0.1
         NUM_QUERIES: 100
     WEIGHTS: "pretrained/swin_base_patch4_window12_384_22k.pth"
 LOSS:
     WEIGHTS:
-        OBJ_POS: 10.0
+        OBJ_POS: 30.0
+        OBJ_NEG: 1.0
         SALIENCY: 5.0
 DATASETS:
     TRAIN: ("irsr_train",)
@@ -61,26 +62,26 @@ DATASETS:
         GROUP3090: "/home/luke/dataset/SOR_RANK/coco_sor"
     ROOT: "datasets"
 DATALOADER:
-    NUM_WORKERS: 8
+    NUM_WORKERS: 16
 SOLVER:
     AMP:
         ENABLED: true
     BACKBONE_MULTIPLIER: 1.0
-    BASE_LR: 0.000025
-    CHECKPOINT_PERIOD: 5000
+    BASE_LR: 0.0001
+    CHECKPOINT_PERIOD: 10000
     CLIP_GRADIENTS:
         CLIP_TYPE: full_model
         CLIP_VALUE: 0.01
         ENABLED: true
         NORM_TYPE: 2.0
     GAMMA: 0.1
-    IMS_PER_BATCH: 16
+    IMS_PER_BATCH: 32
     IMS_PER_GPU: 8
     LR_SCHEDULER_NAME: WarmupMultiStepLR
     MOMENTUM: 0.9
     OPTIMIZER: ADAMW
-    STEPS: (12500, 22500)
-    MAX_ITER: 30000
+    STEPS: (20000, 30000)
+    MAX_ITER: 40000
     REFERENCE_WORLD_SIZE: 0
     WARMUP_FACTOR: 1.0
     WARMUP_ITERS: 100

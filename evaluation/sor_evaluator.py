@@ -3,6 +3,8 @@ from PIL import Image
 import os, scipy, torch
 from pycocotools.mask import encode
 
+import itertools
+import detectron2.utils.comm as comm
 from detectron2.evaluation import DatasetEvaluator
 from .metrics import Metrics
 
@@ -51,16 +53,15 @@ class SOREvaluator(DatasetEvaluator):
         self.cfg = cfg
         self.dataset_name = dataset_name
         self.metrics = Metrics(cfg.TEST.METRICS_OF_INTEREST)
-        self.results = []
-        self.image_names = []
         self.upper_bound = UpperBoundMatcher()
-        self.coco_format = dict()
+
+        self.coco_format = []
+        self.results = []
 
     def reset(self):
-        self.coco_format = dict()
-        self.image_names = []
+        # self.metrics.from_config(cfg=self.cfg)
+        self.coco_format = []
         self.results = []
-        self.metrics.from_config(cfg=self.cfg)
 
     def process(self, inputs, outputs):
         """
@@ -80,16 +81,16 @@ class SOREvaluator(DatasetEvaluator):
 
             ## EVAL
             self.results.append(self.metrics.process(preds=preds, gts=gts, thres=thres))
-            self.image_names.append(image_name)
 
             ## COCO_FORMAT SAVE
-            self.coco_format[image_name] = {
+            self.coco_format.append({
+                "image_name": image_name,
                 "masks": [encode( np.asfortranarray((x > 0.5).astype(np.uint8)) ) for x in preds],
                 "bboxes": out["bboxes"],
                 "scores": out["scores"],
                 "saliency": out["saliency"],
                 "num": out["num"]
-            }
+            })
 
             ## SAVE
             if self.cfg.TEST.EVAL_SAVE:
@@ -117,6 +118,23 @@ class SOREvaluator(DatasetEvaluator):
                 #     )
     
     def evaluate(self):
+        if self.cfg.SOLVER.NUM_GPUS > 1:
+            comm.synchronize()
+            
+            results = comm.gather(self.results, dst=0)
+            results = list(itertools.chain(*results))
+
+            coco_format = comm.gather(self.coco_format, dst=0)
+            coco_format = list(itertools.chain(*coco_format))
+
+            if not comm.is_main_process():
+                return {}
+        else:
+            results = self.results
+            coco_format = self.coco_format
+
+        coco_format_dict = dict( (x["image_name"], x) for x in coco_format)
         out_file = os.path.join(self.cfg.OUTPUT_DIR, self.dataset_name+"_coco_format.pth")
-        torch.save(self.coco_format, out_file)
-        return self.metrics.aggregate(self.results)
+        torch.save(coco_format_dict, out_file)
+
+        return self.metrics.aggregate(results)

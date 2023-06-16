@@ -96,8 +96,10 @@ class SRFovealSA(nn.Module):
 
             ## mask loss
             obj_pos_weight = torch.tensor(self.cfg.LOSS.WEIGHTS.OBJ_POS, device=self.device)
+            obj_neg_weight = torch.tensor(self.cfg.LOSS.WEIGHTS.OBJ_NEG, device=self.device)
+            
             mask_loss = batch_mask_loss(pred_masks[bi, qi], q_masks[bi, ti]).mean()
-            obj_loss = F.binary_cross_entropy_with_logits(pred_objs, q_corresponse.gt(.5).float(), pos_weight=obj_pos_weight)
+            obj_loss = F.binary_cross_entropy_with_logits(pred_objs, q_corresponse.gt(.5).float(), pos_weight=obj_pos_weight/obj_neg_weight) * obj_neg_weight
             bbox_loss = batch_bbox_loss(xyhw2xyxy(pred_bboxes[bi, qi]), q_boxes[bi, ti]).mean()
             sal_loss = torch.zeros_like(obj_loss).mean()  ## initialize as zero
 
