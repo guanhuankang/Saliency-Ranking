@@ -53,7 +53,7 @@ class VisualizationDemo(object):
         visualizer = Visualizer(image, self.metadata, instance_mode=self.instance_mode)
         instances = Instances(
             image.shape[0:2],
-            pred_masks=[(m*255).numpy() for m in predictions["masks"]],
+            pred_masks=[m * 255 for m in predictions["masks"]],
             pred_scores=[float(s) for s in predictions["scores"]],
             pred_classes=torch.arange(predictions["num"])+1
         )

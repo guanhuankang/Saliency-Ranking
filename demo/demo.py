@@ -137,7 +137,7 @@ if __name__ == "__main__":
                         predictions["scores"],
                         predictions["saliency"]
                 ):
-                    m = (m * 255).numpy().astype(np.uint8)
+                    m = (m * 255).astype(np.uint8)
                     out = Image.fromarray(m).convert("RGB")
                     draw = ImageDraw.Draw(out)
                     draw.rectangle(b, width=3)
