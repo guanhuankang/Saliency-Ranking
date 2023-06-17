@@ -95,8 +95,14 @@ class SRFovealSA(nn.Module):
             q_corresponse[bi, qi, 0] = (ti + 1).to(q_corresponse.dtype)  ## 1 to n_max
 
             ## mask loss
-            obj_pos_weight = torch.tensor(self.cfg.LOSS.WEIGHTS.OBJ_POS, device=self.device)
-            obj_neg_weight = torch.tensor(self.cfg.LOSS.WEIGHTS.OBJ_NEG, device=self.device)
+            if self.cfg.LOSS.WEIGHTS.OBJ_POS=="auto" or self.cfg.LOSS.WEIGHTS.OBJ_NEG=="auto":
+                n_pos = len(ti) + 1
+                n_neg = int(bs * nq) + 1
+                obj_pos_weight = torch.tensor(n_neg/(n_pos+n_neg), device=self.device)
+                obj_neg_weight = torch.tensor(n_pos/(n_pos+n_neg), device=self.device)
+            else:
+                obj_pos_weight = torch.tensor(self.cfg.LOSS.WEIGHTS.OBJ_POS, device=self.device)
+                obj_neg_weight = torch.tensor(self.cfg.LOSS.WEIGHTS.OBJ_NEG, device=self.device)
             
             mask_loss = batch_mask_loss(pred_masks[bi, qi], q_masks[bi, ti]).mean()
             obj_loss = F.binary_cross_entropy_with_logits(pred_objs, q_corresponse.gt(.5).float(), pos_weight=obj_pos_weight/obj_neg_weight) * obj_neg_weight
