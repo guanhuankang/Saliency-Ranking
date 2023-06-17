@@ -61,7 +61,7 @@ def main(args):
     for gt_zip in tqdm.tqdm(groundtruth):
         gt = sor_dataset_mapper_test(gt_zip, cfg)
         instances = pred_instances[gt["image_name"]]
-        instances["masks"] = [ torch.tensor(decode(x).astype(float)) for x in instances["masks"]]
+        instances["masks"] = [ decode(x).astype(float) for x in instances["masks"]]
         sor_evaluator.process([gt], [instances])
 
     results = sor_evaluator.evaluate()
