@@ -42,8 +42,8 @@ MODEL:
         EMBED_DIM: 512
         NUM_HEADS: 8
         HIDDEN_DIM: 1024
-        DROPOUT_ATTN: 0.0
-        DROPOUT_FFN: 0.1
+        DROPOUT_ATTN: 0.1
+        DROPOUT_FFN: 0.2
         NUM_QUERIES: 100
     WEIGHTS: "pretrained/swin_base_patch4_window12_384_22k.pth"
 LOSS:
@@ -80,8 +80,8 @@ SOLVER:
     LR_SCHEDULER_NAME: WarmupMultiStepLR
     MOMENTUM: 0.9
     OPTIMIZER: ADAMW
-    STEPS: (20000, 30000)
-    MAX_ITER: 40000
+    STEPS: (20000, 28000)
+    MAX_ITER: 30000
     REFERENCE_WORLD_SIZE: 0
     WARMUP_FACTOR: 1.0
     WARMUP_ITERS: 100
@@ -95,7 +95,7 @@ INPUT:
     FORMAT: "RGB"
 OUTPUT_DIR: "output/"
 TEST:
-    EVAL_PERIOD: 5000
+    EVAL_PERIOD: 10000
     METRICS_OF_INTEREST: ["mae", "acc", "fbeta", "iou", "sa_sor", "sor", "ap", "ar", "top1", "top2", "top3", "top4", "top5"]
     THRESHOLD: 0.5
     EXPECTED_RESULTS: []
