@@ -97,7 +97,7 @@ class SRFovealSA(nn.Module):
             ## mask loss
             if self.cfg.LOSS.WEIGHTS.OBJ_POS=="auto" or self.cfg.LOSS.WEIGHTS.OBJ_NEG=="auto":
                 n_pos = len(ti) + 1
-                n_neg = int(bs * nq) + 1
+                n_neg = int(np.prod(q_corresponse.shape)) + 1
                 obj_pos_weight = torch.tensor(n_neg/(n_pos+n_neg), device=self.device)
                 obj_neg_weight = torch.tensor(n_pos/(n_pos+n_neg), device=self.device)
             else:
