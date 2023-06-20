@@ -145,7 +145,6 @@ class SRSemi(nn.Module):
             rando_semi = np.random.rand() <= self.cfg.MODEL.SEMI_SUPERVISED.UNLABEL_RATIO
             mode = "unsupervised" if (start_semi and rando_semi) else mode
         torch.cuda.empty_cache()
-        print(mode, self.training_iter)
 
         ## prepare image
         if mode=="supervised":

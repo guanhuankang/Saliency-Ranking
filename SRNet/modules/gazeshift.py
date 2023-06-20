@@ -103,6 +103,7 @@ class GazeShift(nn.Module):
             bb[vis.argmax(), :] if vis.max() > .5 else torch.ones(4, device=device)*0.5
             for bb, vis in zip(bbox, q_vis[:, :, 0])
         ], dim=0).unsqueeze(1), size=size)  ## B, 1, h, w
+        gaze_pe = torch.stack([pe[vis.argmax(), :] for pe, vis in zip(qpe, q_vis[:, :, 0])], dim=0).unsqueeze(1)  ## B, 1, C
         z = z.transpose(-1, -2).unflatten(2, size)  ## B, C, h, w
         z = gaze_map * z + (1.0 - gaze_map) * self.peripheral_vision(z)
         z = z.flatten(2).transpose(-1, -2)  ## B, hw, C
@@ -110,5 +111,5 @@ class GazeShift(nn.Module):
         # ior = (q_vis / (q_vis.max(dim=1)[0].unsqueeze(1) + 1e-6)) * self.ior_embedding  ## B, nq, C
         ior = q_vis.gt(.5).float() * self.ior_embedding  ## B, nq, C
         for layer in self.layers:
-            q = layer(q=q, z=z, qpe=qpe, zpe=zpe, ior=ior)
-        return self.saliency_head(q)  ## B, nq, 1
+            q = layer(q=q, z=z, qpe=qpe-gaze_pe, zpe=zpe-gaze_pe, ior=ior)
+        return self.saliency_head(q+qpe-gaze_pe)  ## B, nq, 1
