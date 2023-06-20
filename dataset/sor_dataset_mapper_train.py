@@ -1,4 +1,4 @@
-import copy
+import os, copy
 import cv2
 import numpy as np
 import torch
@@ -61,6 +61,16 @@ def sor_dataset_mapper_train(dataset_dict, cfg):
     ## toTensor
     image = torch.from_numpy(image).permute(2, 0, 1).float()  ## C, s, s
     masks = torch.stack([torch.from_numpy(m).float() for m in masks], dim=0)  ## N, s, s
+    
+    ## read unlabeled data
+    un_name = "none"
+    un_image = image
+    if cfg.MODEL.SEMI_SUPERVISED.ENABLE:
+        un_lst = dataset_dict["unlabeled_data"]
+        un_name = un_lst[np.random.randint(len(un_lst))]
+        un_image = read_image(os.path.join(dataset_dict["unlabeled_path"], un_name+".jpg"))
+        un_image = transform(image=un_image)["image"]
+        un_image = torch.from_numpy(un_image).permute(2, 0, 1).float()  ## C, s, s
 
     return {
         "image_name": dataset_dict["image_name"],
@@ -68,5 +78,7 @@ def sor_dataset_mapper_train(dataset_dict, cfg):
         "height": H,
         "width": W,
         "masks": masks,
-        "ranks": ranks
+        "ranks": ranks,
+        "un_name": un_name,
+        "un_image": un_image
     }

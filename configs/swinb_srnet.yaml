@@ -1,5 +1,5 @@
 MODEL:
-    META_ARCHITECTURE: "SRFovealSA"
+    META_ARCHITECTURE: "SRSemi"
     PIXEL_MEAN: [123.675, 116.280, 103.530]
     PIXEL_STD: [58.395, 57.120, 57.375]
     BACKBONE:
@@ -46,10 +46,15 @@ MODEL:
         DROPOUT_FFN: 0.2
         NUM_QUERIES: 100
     WEIGHTS: "pretrained/swin_base_patch4_window12_384_22k.pth"
+    SEMI_SUPERVISED:
+        ENABLE: true
+        START: 5000
+        UNLABEL_RATIO: 0.75
+        MOMENTUM: 0.999
 LOSS:
     WEIGHTS:
         OBJ_POS: 30.0
-        OBJ_NEG: 1.0
+        OBJ_NEG: -1.0
         SALIENCY: 5.0
 DATASETS:
     TRAIN: ("irsr_train",)
@@ -62,7 +67,7 @@ DATASETS:
         GROUP3090: "/home/luke/dataset/SOR_RANK/coco_sor"
     ROOT: "datasets"
 DATALOADER:
-    NUM_WORKERS: 16
+    NUM_WORKERS: 24
 SOLVER:
     AMP:
         ENABLED: true

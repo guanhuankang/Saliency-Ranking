@@ -14,10 +14,12 @@ def prepare_sor_dataset_list_of_dict(dataset_id, split, root="datasets"):
     print(dataset["__comment__"], flush=True)
 
     image_path = os.path.join(root, dataset_id, "images", split)
+    unlabeled_path = os.path.join(root, "train2017")
     dataset_data = dataset["data"]
 
     for i in range(len(dataset_data)):
         dataset_data[i]["file_name"] = os.path.join(image_path, dataset_data[i]["image_name"]+".jpg")
+        dataset_data[i]["unlabeled_path"] = unlabeled_path
     print("#Length of SOR dataset [{}]:{}".format(dataset_id, len(dataset_data)), flush=True)
     
     return dataset_data
