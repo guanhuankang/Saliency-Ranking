@@ -61,8 +61,9 @@ def add_custom_config(cfg, num_gpus=1):
     cfg.MODEL.SEMI_SUPERVISED = CN()
     cfg.MODEL.SEMI_SUPERVISED.ENABLE = False
     cfg.MODEL.SEMI_SUPERVISED.START = 5000
-    cfg.MODEL.SEMI_SUPERVISED.MOMENTUM = 0.999
     cfg.MODEL.SEMI_SUPERVISED.UNLABEL_RATIO = 0.5
+    cfg.MODEL.SEMI_SUPERVISED.MOMENTUM = (0.99, 0.999)
+    cfg.MODEL.SEMI_SUPERVISED.STEP_ITERS = 1000
 
     cfg.LOSS = CN()
     cfg.LOSS.WEIGHTS = CN()
@@ -92,6 +93,7 @@ def add_custom_config(cfg, num_gpus=1):
     cfg.TEST.EVAL_SAVE = False
     cfg.TEST.METRICS_OF_INTEREST = ["mae"]
     cfg.TEST.THRESHOLD = 0.5
+    cfg.TEST.MAX_OBJECTS = 20
 
     cfg.INPUT.FT_SIZE_TRAIN = 800
     cfg.INPUT.FT_SIZE_TEST = 800

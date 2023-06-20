@@ -42,15 +42,16 @@ MODEL:
         EMBED_DIM: 512
         NUM_HEADS: 8
         HIDDEN_DIM: 1024
-        DROPOUT_ATTN: 0.1
+        DROPOUT_ATTN: 0.0
         DROPOUT_FFN: 0.2
         NUM_QUERIES: 100
     WEIGHTS: "pretrained/swin_base_patch4_window12_384_22k.pth"
     SEMI_SUPERVISED:
         ENABLE: true
-        START: 5000
+        START: 1000
         UNLABEL_RATIO: 0.75
-        MOMENTUM: 0.999
+        MOMENTUM: (0.99, 0.999)
+        STEP_ITERS: 1000
 LOSS:
     WEIGHTS:
         OBJ_POS: 30.0
@@ -85,12 +86,12 @@ SOLVER:
     LR_SCHEDULER_NAME: WarmupMultiStepLR
     MOMENTUM: 0.9
     OPTIMIZER: ADAMW
-    STEPS: (20000, 28000)
-    MAX_ITER: 30000
+    STEPS: (20000, 30000)
+    MAX_ITER: 40000
     REFERENCE_WORLD_SIZE: 0
     WARMUP_FACTOR: 1.0
     WARMUP_ITERS: 100
-    WEIGHT_DECAY: 0.0001
+    WEIGHT_DECAY: 0.0005
 INPUT:
     FT_SIZE_TRAIN: 800
     FT_SIZE_TEST: 800
@@ -111,4 +112,5 @@ TEST:
         ENABLED: false
     UPPER_BOUND: false
     EVAL_SAVE: false
+    MAX_OBJECTS: 20
 VERSION: 2

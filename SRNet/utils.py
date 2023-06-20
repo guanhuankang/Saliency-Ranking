@@ -57,6 +57,16 @@ def pad1d(x, dim, num, value=0.0):
     v = torch.ones(size, dtype=x.dtype, device=x.device) * value
     return torch.cat([x, v], dim=dim)
 
+def masks_to_boxes_robust(masks):
+    n, H, W = masks.shape
+    bbox = []
+    for i in range(n):
+        try:
+            bbox.append(masks_to_boxes(masks[i:i+1]))
+        except:
+            bbox.append(torch.zeros((1,4), device=masks.device))
+    return torch.cat(bbox, dim=0)
+
 def mask2Boxes(masks):
     """
 
@@ -68,7 +78,10 @@ def mask2Boxes(masks):
 
     """
     n, H, W = masks.shape
-    bbox = masks_to_boxes(masks)
+    try:
+        bbox = masks_to_boxes(masks)
+    except:
+        bbox = masks_to_boxes_robust(masks)
     xi, yi, xa, ya = bbox[:, 0], bbox[:, 1], bbox[:, 2], bbox[:, 3]
     xi = xi / W
     yi = yi / H

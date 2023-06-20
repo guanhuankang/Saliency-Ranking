@@ -45,7 +45,11 @@ class SRSemi(nn.Module):
         """
         modules = [self.fovealqsa, self.gaze_shift]
         ema_modules = [self.fovealqsa_ema, self.gaze_shift_ema]
-        momentum = self.cfg.MODEL.SEMI_SUPERVISED.MOMENTUM
+        if self.training_iter <= self.cfg.MODEL.SEMI_SUPERVISED.STEP_ITERS:
+            momentum = self.cfg.MODEL.SEMI_SUPERVISED.MOMENTUM[0]
+        else:
+            momentum = self.cfg.MODEL.SEMI_SUPERVISED.MOMENTUM[1]
+        
         for mo, em in zip(modules, ema_modules):
             weights = {}
             for name, param in mo.named_parameters():
@@ -82,11 +86,11 @@ class SRSemi(nn.Module):
             pred_bboxes = torch.sigmoid(pred_bboxes)  ## B, nq, 4 [xyhw] in [0,1]
 
         size = tuple(zs[gaze_shift_key].shape[2::])
+        bs, nq, _ = q.shape
+        bs_idx = torch.arange(bs, device=self.device, dtype=torch.long)
         z = zs[gaze_shift_key].flatten(2).transpose(-1, -2)
         zpe = self.pe_layer(size).unsqueeze(0).expand(bs, -1, -1, -1).flatten(2).transpose(-1, -2)
         q_vis = torch.zeros_like(pred_objs)
-        bs, nq, _ = q.shape
-        bs_idx = torch.arange(bs, device=self.device, dtype=torch.long)
 
         results = [{
                 "image_name": x.get("image_name", idx),
@@ -96,7 +100,7 @@ class SRSemi(nn.Module):
                 "saliency": [],
                 "num": 0
             } for idx,x in enumerate(batch_dict)]
-        for i in range(nq):
+        for i in range(self.cfg.TEST.MAX_OBJECTS):
             if ema:
                 sal = self.gaze_shift_ema(q=q, z=z, qpe=qpe, zpe=zpe, q_vis=q_vis, bbox=pred_bboxes, size=size)
             else:
@@ -141,6 +145,7 @@ class SRSemi(nn.Module):
             rando_semi = np.random.rand() <= self.cfg.MODEL.SEMI_SUPERVISED.UNLABEL_RATIO
             mode = "unsupervised" if (start_semi and rando_semi) else mode
         torch.cuda.empty_cache()
+        print(mode, self.training_iter)
 
         ## prepare image
         if mode=="supervised":
@@ -164,7 +169,7 @@ class SRSemi(nn.Module):
                 ema=True
             )
             ## Pseudo label
-            masks = [torch.stack([torch.from_numpy(_) for _ in x["masks"]], dim=0, device=self.device) for x in out]
+            masks = [torch.stack([torch.from_numpy(_) for _ in x["masks"]], dim=0).to(self.device) for x in out]
         elif self.training and mode=="supervised":
             ## GT label
             masks = [x["masks"].to(self.device) for x in batch_dict]  ## list of k_i, Ht, Wt
