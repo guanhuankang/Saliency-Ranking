@@ -55,7 +55,7 @@ MODEL:
         MOMENTUM: (0.99, 0.999)
 LOSS:
     WEIGHTS:
-        OBJ_POS: -1.0
+        OBJ_POS: 30.0
         SALIENCY: 5.0
 DATASETS:
     TRAIN: ("irsr_train",)
