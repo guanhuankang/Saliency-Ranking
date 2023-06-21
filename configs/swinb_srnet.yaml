@@ -48,9 +48,9 @@ MODEL:
     WEIGHTS: "pretrained/swin_base_patch4_window12_384_22k.pth"
     SEMI_SUPERVISED:
         ENABLE: true
-        START: 5000
-        UNLABEL_RATIO: 0.50
         USED_UNLABEL_IMS: 5
+        UNLABEL_STEP: (10000, 20000)
+        UNLABEL_RATIO: (0.25, 0.50)
         STEP_ITERS: 1000
         MOMENTUM: (0.99, 0.999)
 LOSS:
@@ -74,7 +74,7 @@ SOLVER:
         ENABLED: true
     BACKBONE_MULTIPLIER: 1.0
     BASE_LR: 0.0001
-    CHECKPOINT_PERIOD: 2000
+    CHECKPOINT_PERIOD: 2500
     CLIP_GRADIENTS:
         CLIP_TYPE: full_model
         CLIP_VALUE: 0.01
@@ -86,8 +86,8 @@ SOLVER:
     LR_SCHEDULER_NAME: WarmupMultiStepLR
     MOMENTUM: 0.9
     OPTIMIZER: ADAMW
-    STEPS: (20000, 30000)
-    MAX_ITER: 40000
+    STEPS: (5000, 30000)
+    MAX_ITER: 30001
     REFERENCE_WORLD_SIZE: 0
     WARMUP_FACTOR: 1.0
     WARMUP_ITERS: 100

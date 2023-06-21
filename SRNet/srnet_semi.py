@@ -58,6 +58,12 @@ class SRSemi(nn.Module):
                 param.data = momentum * param.data + (1.0 - momentum) * weights[name]
                 param.requires_grad_(False)
         self.training_iter += 1
+        thres = 0.0
+        if self.training_iter >= self.cfg.MODEL.SEMI_SUPERVISED.UNLABEL_STEP[0]:
+            thres = self.cfg.MODEL.SEMI_SUPERVISED.UNLABEL_RATIO[0]
+        if self.training_iter >= self.cfg.MODEL.SEMI_SUPERVISED.UNLABEL_STEP[1]:
+            thres = self.cfg.MODEL.SEMI_SUPERVISED.UNLABEL_RATIO[1]
+        return np.random.rand() < thres
 
     def comm(self, inputs):
         zs = self.backbone(inputs)
@@ -140,10 +146,7 @@ class SRSemi(nn.Module):
         ## update EMA
         mode = "supervised"
         if self.training and self.cfg.MODEL.SEMI_SUPERVISED.ENABLE:
-            self.updateEMA()
-            start_semi = self.training_iter >= self.cfg.MODEL.SEMI_SUPERVISED.START
-            rando_semi = np.random.rand() <= self.cfg.MODEL.SEMI_SUPERVISED.UNLABEL_RATIO
-            mode = "unsupervised" if (start_semi and rando_semi) else mode
+            mode = "unsupervised" if self.updateEMA() else mode
         torch.cuda.empty_cache()
 
         ## prepare image
