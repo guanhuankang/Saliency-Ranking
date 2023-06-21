@@ -36,7 +36,7 @@ MODEL:
             NUM_BLOCKS: 2
             KEY_FEATURES: ["res5", "res4", "res3"]
         FOVEALQ:
-            NUM_BLOCKS: 6
+            NUM_BLOCKS: 4
             KEY_FEATURES: ["res5", "res4", "res3"]
     COMMON:
         EMBED_DIM: 512
@@ -48,14 +48,14 @@ MODEL:
     WEIGHTS: "pretrained/swin_base_patch4_window12_384_22k.pth"
     SEMI_SUPERVISED:
         ENABLE: true
-        START: 1000
-        UNLABEL_RATIO: 0.75
-        MOMENTUM: (0.99, 0.999)
+        START: 5000
+        UNLABEL_RATIO: 0.50
+        USED_UNLABEL_IMS: 5
         STEP_ITERS: 1000
+        MOMENTUM: (0.99, 0.999)
 LOSS:
     WEIGHTS:
-        OBJ_POS: 30.0
-        OBJ_NEG: -1.0
+        OBJ_POS: -1.0
         SALIENCY: 5.0
 DATASETS:
     TRAIN: ("irsr_train",)
@@ -74,7 +74,7 @@ SOLVER:
         ENABLED: true
     BACKBONE_MULTIPLIER: 1.0
     BASE_LR: 0.0001
-    CHECKPOINT_PERIOD: 10000
+    CHECKPOINT_PERIOD: 2000
     CLIP_GRADIENTS:
         CLIP_TYPE: full_model
         CLIP_VALUE: 0.01
@@ -112,5 +112,5 @@ TEST:
         ENABLED: false
     UPPER_BOUND: false
     EVAL_SAVE: false
-    MAX_OBJECTS: 20
+    MAX_OBJECTS: 12
 VERSION: 2

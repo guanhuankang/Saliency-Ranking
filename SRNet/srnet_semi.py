@@ -195,17 +195,16 @@ class SRSemi(nn.Module):
             q_corresponse[bi, qi, 0] = (ti + 1).to(q_corresponse.dtype)  ## 1 to n_max
 
             ## mask loss
-            if self.cfg.LOSS.WEIGHTS.OBJ_POS < 0.0 or self.cfg.LOSS.WEIGHTS.OBJ_NEG < 0.0:
+            if self.cfg.LOSS.WEIGHTS.OBJ_POS < 0.0:
                 n_pos = len(ti) + 1
                 n_neg = int(np.prod(q_corresponse.shape)) + 1
-                obj_pos_weight = torch.tensor(n_neg/(n_pos+n_neg), device=self.device)
                 obj_neg_weight = torch.tensor(n_pos/(n_pos+n_neg), device=self.device)
-            else:
+                obj_pos_weight = torch.tensor(n_neg/(n_pos+n_neg), device=self.device) / obj_neg_weight
+            if self.cfg.LOSS.WEIGHTS.OBJ_POS >= 0.0:
                 obj_pos_weight = torch.tensor(self.cfg.LOSS.WEIGHTS.OBJ_POS, device=self.device)
-                obj_neg_weight = torch.tensor(self.cfg.LOSS.WEIGHTS.OBJ_NEG, device=self.device)
-            
+
             mask_loss = batch_mask_loss(pred_masks[bi, qi], q_masks[bi, ti]).mean()
-            obj_loss = F.binary_cross_entropy_with_logits(pred_objs, q_corresponse.gt(.5).float(), pos_weight=obj_pos_weight/obj_neg_weight) * obj_neg_weight
+            obj_loss = F.binary_cross_entropy_with_logits(pred_objs, q_corresponse.gt(.5).float(), pos_weight=obj_pos_weight)
             bbox_loss = batch_bbox_loss(xyhw2xyxy(pred_bboxes[bi, qi]), q_boxes[bi, ti]).mean()
             sal_loss = torch.zeros_like(obj_loss).mean()  ## initialize as zero
 

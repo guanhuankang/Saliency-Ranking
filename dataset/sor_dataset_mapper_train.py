@@ -67,7 +67,7 @@ def sor_dataset_mapper_train(dataset_dict, cfg):
     un_image = image
     if cfg.MODEL.SEMI_SUPERVISED.ENABLE:
         un_lst = dataset_dict["unlabeled_data"]
-        un_name = un_lst[np.random.randint(len(un_lst))]
+        un_name = un_lst[np.random.randint( min(len(un_lst), cfg.MODEL.SEMI_SUPERVISED.USED_UNLABEL_IMS) )]
         un_image = read_image(os.path.join(dataset_dict["unlabeled_path"], un_name+".jpg"))
         un_image = transform(image=un_image)["image"]
         un_image = torch.from_numpy(un_image).permute(2, 0, 1).float()  ## C, s, s
