@@ -22,6 +22,7 @@ def setup(args):
     cfg = get_cfg()
     add_custom_config(cfg, num_gpus=args.num_gpus)
     cfg.merge_from_file(args.config_file)
+
     root = {
         "WORK": cfg.DATASETS.ENV.WORK,
         "GROUP4090": cfg.DATASETS.ENV.GROUP4090,
@@ -31,7 +32,8 @@ def setup(args):
     }.get(dict(os.environ).get("ENVNAME").upper(), cfg.DATASETS.ROOT)
     cfg.DATASETS.ROOT = root
     print("ROOT:", root)
-    # cfg.merge_from_list(args.opts)
+
+    cfg.merge_from_list(args.opts)
     cfg.freeze()
     default_setup(cfg, args)
     # logger.setup_logger(output=cfg.OUTPUT_DIR, distributed_rank=comm.get_rank(), name="toy")
@@ -44,7 +46,7 @@ def main(args):
     groundtruth = DatasetCatalog.get(dataset_name)
 
     sor_evaluator = SOREvaluator(cfg, dataset_name)
-    name_paths = dict((args.opts[i], args.opts[i + 1]) for i in range(len(args.opts)) if (int(i) & 1) == 0)
+    name_paths = {dataset_name: cfg.MODEL.WEIGHTS}
     for name, path in name_paths.items():
         for gt_zip in tqdm.tqdm(groundtruth):
             gt = sor_dataset_mapper_test(gt_zip, cfg)
