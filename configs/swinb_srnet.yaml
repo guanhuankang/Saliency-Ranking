@@ -46,7 +46,7 @@ MODEL:
     SEMI_SUPERVISED:
         ENABLE: true
         USED_UNLABEL_IMS: 20
-        UNLABEL_STEP: (1000, 5000)
+        UNLABEL_STEP: (1000, 2000)
         UNLABEL_RATIO: (0.25, 0.50)
         MOMENTUM: 0.995
 LOSS:
