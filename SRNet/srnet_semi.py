@@ -45,10 +45,7 @@ class SRSemi(nn.Module):
         """
         modules = [self.fovealqsa, self.gaze_shift]
         ema_modules = [self.fovealqsa_ema, self.gaze_shift_ema]
-        if self.training_iter <= self.cfg.MODEL.SEMI_SUPERVISED.STEP_ITERS:
-            momentum = self.cfg.MODEL.SEMI_SUPERVISED.MOMENTUM[0]
-        else:
-            momentum = self.cfg.MODEL.SEMI_SUPERVISED.MOMENTUM[1]
+        momentum = self.cfg.MODEL.SEMI_SUPERVISED.MOMENTUM
         
         for mo, em in zip(modules, ema_modules):
             weights = {}
