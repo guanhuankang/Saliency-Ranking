@@ -33,7 +33,7 @@ MODEL:
             ALPHA: 1.0
             KEY: "res5"
         FOVEAL:
-            NUM_BLOCKS: 2
+            NUM_BLOCKS: 4
             KEY_FEATURES: ["res5", "res4", "res3"]
         FOVEALQ:
             NUM_BLOCKS: 4
