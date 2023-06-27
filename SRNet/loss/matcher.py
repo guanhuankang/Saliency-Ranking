@@ -25,8 +25,8 @@ def hungarianMatcher(preds: Dict, targets: List) -> Tuple:
         nq = len(masks)
 
         mask_loss = batch_mask_loss(torch.repeat_interleave(masks, N, dim=0), tgts.repeat(nq, 1, 1, 1)).reshape(nq, N)  ## nq, N
-        cls_loss = -torch.sigmoid(preds["scores"][b]).repeat_interleave(N, dim=1)  ## nq, N
-        cost_matrix = mask_loss + cls_loss  ## nq, N
+        # cls_loss = -torch.sigmoid(preds["scores"][b]).repeat_interleave(N, dim=1)  ## nq, N
+        cost_matrix = mask_loss # + cls_loss  ## nq, N
         row_idxs, col_idxs = scipy.optimize.linear_sum_assignment(cost_matrix.detach().cpu().numpy())
         indices[0].append((torch.ones(len(row_idxs), device=cost_matrix.device) * b).long())  ## batch index
         indices[1].append(torch.tensor(row_idxs, device=cost_matrix.device, dtype=torch.long))  ## query index
