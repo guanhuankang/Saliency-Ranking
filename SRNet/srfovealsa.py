@@ -130,7 +130,7 @@ class SRFovealSA(nn.Module):
                     bbox=pred_bboxes,  ## xyhw
                     size=tuple(zs[gaze_shift_key].shape[2::])
                 )
-                sal_loss += F.l1_loss(torch.sigmoid(sal), q_ans)
+                sal_loss += F.binary_cross_entropy_with_logits(sal, q_ans)
 
             ## debugDump
             if np.random.rand() < 0.1:
