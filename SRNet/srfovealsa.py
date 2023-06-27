@@ -5,8 +5,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from detectron2.modeling import META_ARCH_REGISTRY, build_backbone
 
-from .neck import FrcPN
-from .modules import BBoxDecoder, MaskDecoder, GazeShift, Foveal, FovealQ, FovealQSA
+from .neck import FrcPN, FPN
+from .modules import BBoxDecoder, MaskDecoder, GazeShift, Foveal, FovealQ, FovealQSA, Peripheral
 from .component import PositionEmbeddingRandom
 from .utils import calc_iou, debugDump, pad1d, mask2Boxes, xyhw2xyxy, xyxy2xyhw
 from .loss import hungarianMatcher, batch_mask_loss, batch_bbox_loss
@@ -20,12 +20,13 @@ class SRFovealSA(nn.Module):
         super().__init__()
         self.cfg = cfg
         self.backbone = build_backbone(cfg)
-        self.neck = FrcPN(cfg)
+        self.neck = FPN(cfg)
         self.pe_layer = PositionEmbeddingRandom(cfg.MODEL.COMMON.EMBED_DIM//2)
         # self.bbox_decoder = BBoxDecoder(cfg)
         # self.mask_decoder = MaskDecoder(cfg)
         self.fovealqsa = FovealQSA(cfg)
-        self.gaze_shift = GazeShift(cfg)
+        # self.gaze_shift = GazeShift(cfg)
+        self.gaze_shift = Peripheral(cfg)
 
         self.register_buffer("pixel_mean", torch.tensor(cfg.MODEL.PIXEL_MEAN).reshape(1, -1, 1, 1), False)
         self.register_buffer("pixel_std", torch.tensor(cfg.MODEL.PIXEL_STD).reshape(1, 3, 1, 1), False)

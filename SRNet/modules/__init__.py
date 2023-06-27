@@ -4,3 +4,4 @@ from .gazeshift import GazeShift
 from .foveal import Foveal
 from .fovealq import FovealQ
 from .fovealqsa import FovealQSA
+from .peripheral import Peripheral
