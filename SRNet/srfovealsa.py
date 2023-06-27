@@ -6,7 +6,7 @@ import torch.nn.functional as F
 from detectron2.modeling import META_ARCH_REGISTRY, build_backbone
 
 from .neck import FrcPN, FPN
-from .modules import BBoxDecoder, MaskDecoder, GazeShift, Foveal, FovealQ, FovealQSA, Peripheral
+from .modules import BBoxDecoder, MaskDecoder, GazeShift, FovealParallel, FovealQSA, Peripheral, PeripheralWOPE
 from .component import PositionEmbeddingRandom
 from .utils import calc_iou, debugDump, pad1d, mask2Boxes, xyhw2xyxy, xyxy2xyhw
 from .loss import hungarianMatcher, batch_mask_loss, batch_bbox_loss
@@ -24,9 +24,9 @@ class SRFovealSA(nn.Module):
         self.pe_layer = PositionEmbeddingRandom(cfg.MODEL.COMMON.EMBED_DIM//2)
         # self.bbox_decoder = BBoxDecoder(cfg)
         # self.mask_decoder = MaskDecoder(cfg)
-        self.fovealqsa = FovealQSA(cfg)
+        self.fovealqsa = FovealParallel(cfg)
         # self.gaze_shift = GazeShift(cfg)
-        self.gaze_shift = Peripheral(cfg)
+        self.gaze_shift = PeripheralWOPE(cfg)
 
         self.register_buffer("pixel_mean", torch.tensor(cfg.MODEL.PIXEL_MEAN).reshape(1, -1, 1, 1), False)
         self.register_buffer("pixel_std", torch.tensor(cfg.MODEL.PIXEL_STD).reshape(1, 3, 1, 1), False)
@@ -74,23 +74,23 @@ class SRFovealSA(nn.Module):
             q_corresponse[bi, qi, 0] = (ti + 1).to(q_corresponse.dtype)  ## 1 to n_max
 
             ## mask loss
-            # if self.cfg.LOSS.WEIGHTS.OBJ_POS < 0.0 or self.cfg.LOSS.WEIGHTS.OBJ_NEG < 0.0:
-            #     n_pos = len(ti) + 1
-            #     n_neg = int(np.prod(q_corresponse.shape)) + 1
-            #     obj_pos_weight = torch.tensor(n_neg/(n_pos+n_neg), device=self.device)
-            #     obj_neg_weight = torch.tensor(n_pos/(n_pos+n_neg), device=self.device)
-            # else:
-            #     obj_pos_weight = torch.tensor(self.cfg.LOSS.WEIGHTS.OBJ_POS, device=self.device)
-            #     obj_neg_weight = torch.tensor(self.cfg.LOSS.WEIGHTS.OBJ_NEG, device=self.device)
+            if self.cfg.LOSS.WEIGHTS.OBJ_POS < 0.0 or self.cfg.LOSS.WEIGHTS.OBJ_NEG < 0.0:
+                n_pos = len(ti) + 1
+                n_neg = int(np.prod(q_corresponse.shape)) + 1
+                obj_pos_weight = torch.tensor(n_neg/(n_pos+n_neg), device=self.device)
+                obj_neg_weight = torch.tensor(n_pos/(n_pos+n_neg), device=self.device)
+            else:
+                obj_pos_weight = torch.tensor(self.cfg.LOSS.WEIGHTS.OBJ_POS, device=self.device)
+                obj_neg_weight = torch.tensor(self.cfg.LOSS.WEIGHTS.OBJ_NEG, device=self.device)
             
-            # pos = q_corresponse.gt(.5).float()
-            # neg = q_corresponse.le(.5).float()
+            pos = q_corresponse.gt(.5).float()
+            neg = q_corresponse.le(.5).float()
 
             mask_loss = batch_mask_loss(pred_masks[bi, qi], q_masks[bi, ti]).mean()
             
             # obj_loss = F.binary_cross_entropy_with_logits(pred_objs, q_corresponse.gt(.5).float(), pos_weight=obj_pos_weight/obj_neg_weight) * obj_neg_weight
-            #obj_loss = (F.l1_loss(torch.sigmoid(pred_objs), torch.ones_like(pred_objs), reduction="none") * pos * obj_pos_weight + \
-            #F.l1_loss(torch.sigmoid(pred_objs), torch.zeros_like(pred_objs), reduction="none") * neg).mean()
+            obj_loss = (F.l1_loss(torch.sigmoid(pred_objs), torch.ones_like(pred_objs), reduction="none") * pos * obj_pos_weight + \
+            F.l1_loss(torch.sigmoid(pred_objs), torch.zeros_like(pred_objs), reduction="none") * neg).mean()
 
             bbox_loss = batch_bbox_loss(xyhw2xyxy(pred_bboxes[bi, qi]), q_boxes[bi, ti]).mean()
             sal_loss = torch.zeros_like(pred_objs).mean()  ## initialize as zero
@@ -109,7 +109,7 @@ class SRFovealSA(nn.Module):
                     bbox=pred_bboxes.detach(),  ## xyhw
                     size=tuple(zs[gaze_shift_key].shape[2::])
                 )
-                sal_loss += F.l1_loss(torch.sigmoid(sal), q_ans)
+                sal_loss += F.binary_cross_entropy_with_logits(sal, q_ans)
 
             ## debugDump
             if np.random.rand() < 0.1:
@@ -128,7 +128,7 @@ class SRFovealSA(nn.Module):
 
             return {
                 "mask_loss": mask_loss,
-                # "obj_loss": obj_loss,
+                "obj_loss": obj_loss,
                 "bbox_loss": bbox_loss,
                 "sal_loss": sal_loss * self.cfg.LOSS.WEIGHTS.SALIENCY
             }
@@ -156,13 +156,13 @@ class SRFovealSA(nn.Module):
                 q_vis[bs_idx, sal_max, 0] = i+1
 
                 sal_scores = sal[bs_idx, sal_max, 0].sigmoid()  ## B
-                # obj_scores = pred_objs[bs_idx, sal_max, 0].sigmoid()  ## B
+                obj_scores = pred_objs[bs_idx, sal_max, 0].sigmoid()  ## B
                 the_masks  = pred_masks[bs_idx, sal_max, :, :]  ## B, H, W
                 the_bboxes = xyhw2xyxy(pred_bboxes[bs_idx, sal_max, :])    ## B, 4 [xyxy]
 
                 t_sal = 0.1
-                # t_obj = 0.5
-                valid_items = sal_scores.gt(t_sal).float()  # * obj_scores.gt(t_obj).float()
+                t_obj = 0.5
+                valid_items = sal_scores.gt(t_sal).float() * obj_scores.gt(t_obj).float()
                 valid_idx = torch.where(valid_items.gt(.5))[0]
                 for idx in valid_idx:
                     hi, wi = batch_dict[idx]["height"], batch_dict[idx]["width"]
@@ -173,7 +173,7 @@ class SRFovealSA(nn.Module):
                         (the_bboxes[idx].detach().cpu() * torch.tensor([wi, hi, wi, hi])).tolist()
                     )
                     results[idx]["scores"].append(
-                        float(0.0)
+                        float(obj_scores[idx].detach().cpu())
                     )
                     results[idx]["saliency"].append(
                         float(sal_scores[idx].detach().cpu())
