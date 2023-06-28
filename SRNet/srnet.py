@@ -100,12 +100,12 @@ class SRNet(nn.Module):
                 q_vis = q_corresponse * q_corresponse.le(i).float()  # + q_vis_gt
                 q_ans = q_corresponse.eq(i+1).float()
                 sal = self.gaze_shift(
-                    q=q.detach(),
-                    z=zs[gaze_shift_key].flatten(2).transpose(-1, -2).detach(),
-                    qpe=qpe.detach(),
-                    zpe=zs_pe[gaze_shift_key].flatten(2).transpose(-1, -2).detach(),
-                    q_vis=q_vis.detach(),
-                    bbox=pred_bboxes.detach(),  ## xyhw
+                    q=q,
+                    z=zs[gaze_shift_key].flatten(2).transpose(-1, -2),
+                    qpe=qpe,
+                    zpe=zs_pe[gaze_shift_key].flatten(2).transpose(-1, -2),
+                    q_vis=q_vis,
+                    bbox=pred_bboxes,  ## xyhw
                     size=tuple(zs[gaze_shift_key].shape[2::])
                 )
                 sal_loss += F.binary_cross_entropy_with_logits(sal, q_ans)
