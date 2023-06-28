@@ -1,5 +1,5 @@
 MODEL:
-    META_ARCHITECTURE: "SRFovealSA"
+    META_ARCHITECTURE: "SRNet"
     PIXEL_MEAN: [123.675, 116.280, 103.530]
     PIXEL_STD: [58.395, 57.120, 57.375]
     BACKBONE:
@@ -33,7 +33,7 @@ MODEL:
             ALPHA: 1.0
             KEY: "res5"
         FOVEAL:
-            NUM_BLOCKS: 2
+            NUM_BLOCKS: 4
             KEY_FEATURES: ["res5", "res4", "res3"]
         FOVEALQ:
             NUM_BLOCKS: 4
@@ -67,7 +67,7 @@ SOLVER:
     AMP:
         ENABLED: true
     BACKBONE_MULTIPLIER: 1.0
-    BASE_LR: 0.0001
+    BASE_LR: 0.00001
     CHECKPOINT_PERIOD: 5000
     CLIP_GRADIENTS:
         CLIP_TYPE: full_model
@@ -80,12 +80,12 @@ SOLVER:
     LR_SCHEDULER_NAME: WarmupMultiStepLR
     MOMENTUM: 0.9
     OPTIMIZER: ADAMW
-    STEPS: (20000, 50000)
-    MAX_ITER: 60000
+    STEPS: (40000,48000)
+    MAX_ITER: 50000
     REFERENCE_WORLD_SIZE: 0
     WARMUP_FACTOR: 1.0
     WARMUP_ITERS: 100
-    WEIGHT_DECAY: 0.05
+    WEIGHT_DECAY: 0.0005
 INPUT:
     FT_SIZE_TRAIN: 800
     FT_SIZE_TEST: 800

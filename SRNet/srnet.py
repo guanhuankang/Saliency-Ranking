@@ -5,14 +5,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 from detectron2.modeling import META_ARCH_REGISTRY, build_backbone
 
-from .neck import FrcPN
-from .modules import BBoxDecoder, MaskDecoder, GazeShift, FovealQ, FovealQSA
+from .neck import FrcPN, FPN
+from .modules import BBoxDecoder, MaskDecoder, GazeShift, FovealQ, FovealQSA, FovealParallel, PeripheralWOPE
 from .component import PositionEmbeddingRandom
 from .utils import calc_iou, debugDump, pad1d, mask2Boxes, xyhw2xyxy, xyxy2xyhw
 from .loss import hungarianMatcher, batch_mask_loss, batch_bbox_loss
 
 @META_ARCH_REGISTRY.register()
-class SRFovealSA(nn.Module):
+class SRNet(nn.Module):
     """
     SRFoveal: backbone+neck+fovealq+gazeshift (foveal w/o sa)
     """
@@ -20,12 +20,12 @@ class SRFovealSA(nn.Module):
         super().__init__()
         self.cfg = cfg
         self.backbone = build_backbone(cfg)
-        self.neck = FrcPN(cfg)
+        self.neck = FPN(cfg)
         self.pe_layer = PositionEmbeddingRandom(cfg.MODEL.COMMON.EMBED_DIM//2)
         # self.bbox_decoder = BBoxDecoder(cfg)
         # self.mask_decoder = MaskDecoder(cfg)
-        self.fovealqsa = FovealQSA(cfg)
-        self.gaze_shift = GazeShift(cfg)
+        self.fovealqsa = FovealParallel(cfg)
+        self.gaze_shift = PeripheralWOPE(cfg)
 
         self.register_buffer("pixel_mean", torch.tensor(cfg.MODEL.PIXEL_MEAN).reshape(1, -1, 1, 1), False)
         self.register_buffer("pixel_std", torch.tensor(cfg.MODEL.PIXEL_STD).reshape(1, 3, 1, 1), False)
@@ -49,34 +49,12 @@ class SRFovealSA(nn.Module):
             for k in zs
         )
 
-        # q, qpe, aux_bboxes, pred_objs = self.bbox_decoder(
-        #     z=zs["res5"].flatten(2).transpose(-1, -2),
-        #     zpe=self.pe_layer(zs["res5"].shape[2::]).unsqueeze(0).expand(bs, -1, -1, -1).flatten(2).transpose(-1, -2)
-        # )
-        # aux_bboxes = torch.sigmoid(aux_bboxes)  ## xyhw
-
         q, qpe, pred_masks, pred_bboxes, pred_objs = self.fovealqsa(
             feats=zs,
             feats_pe=zs_pe
         )
         pred_bboxes = torch.sigmoid(pred_bboxes)  ## B, nq, 4 [xyhw] in [0,1]
         gaze_shift_key = self.cfg.MODEL.MODULES.GAZE_SHIFT.KEY
-
-        # q, pred_masks, pred_bboxes = self.foveal(
-        #     q=q,
-        #     qpe=qpe,
-        #     feats=zs,
-        #     feats_pe=zs_pe
-        # )
-        # pred_bboxes = torch.sigmoid(pred_bboxes)  ## xyhw
-
-        # pred_masks = self.mask_decoder(
-        #     q=q,
-        #     z=zs["res3"].flatten(2).transpose(-1, -2),
-        #     qpe=qpe,
-        #     zpe=self.pe_layer(zs["res3"].shape[2::]).unsqueeze(0).expand(bs, -1, -1, -1).flatten(2).transpose(-1, -2),
-        #     size=tuple(zs["res3"].shape[2::])
-        # )
 
         if self.training:
             ## Training
@@ -109,9 +87,9 @@ class SRFovealSA(nn.Module):
 
             mask_loss = batch_mask_loss(pred_masks[bi, qi], q_masks[bi, ti]).mean()
             
-            # obj_loss = F.binary_cross_entropy_with_logits(pred_objs, q_corresponse.gt(.5).float(), pos_weight=obj_pos_weight/obj_neg_weight) * obj_neg_weight
-            obj_loss = (F.l1_loss(torch.sigmoid(pred_objs), torch.ones_like(pred_objs), reduction="none") * pos * obj_pos_weight + \
-            F.l1_loss(torch.sigmoid(pred_objs), torch.zeros_like(pred_objs), reduction="none") * neg).mean()
+            obj_loss = F.binary_cross_entropy_with_logits(pred_objs, q_corresponse.gt(.5).float(), pos_weight=obj_pos_weight/obj_neg_weight) * obj_neg_weight
+            # obj_loss = (F.l1_loss(torch.sigmoid(pred_objs), torch.ones_like(pred_objs), reduction="none") * pos * obj_pos_weight + \
+            # F.l1_loss(torch.sigmoid(pred_objs), torch.zeros_like(pred_objs), reduction="none") * neg).mean()
 
             bbox_loss = batch_bbox_loss(xyhw2xyxy(pred_bboxes[bi, qi]), q_boxes[bi, ti]).mean()
             sal_loss = torch.zeros_like(obj_loss).mean()  ## initialize as zero
@@ -122,12 +100,12 @@ class SRFovealSA(nn.Module):
                 q_vis = q_corresponse * q_corresponse.le(i).float()  # + q_vis_gt
                 q_ans = q_corresponse.eq(i+1).float()
                 sal = self.gaze_shift(
-                    q=q,
-                    z=zs[gaze_shift_key].flatten(2).transpose(-1, -2),
-                    qpe=qpe,
-                    zpe=zs_pe[gaze_shift_key].flatten(2).transpose(-1, -2),
-                    q_vis=q_vis,
-                    bbox=pred_bboxes,  ## xyhw
+                    q=q.detach(),
+                    z=zs[gaze_shift_key].flatten(2).transpose(-1, -2).detach(),
+                    qpe=qpe.detach(),
+                    zpe=zs_pe[gaze_shift_key].flatten(2).transpose(-1, -2).detach(),
+                    q_vis=q_vis.detach(),
+                    bbox=pred_bboxes.detach(),  ## xyhw
                     size=tuple(zs[gaze_shift_key].shape[2::])
                 )
                 sal_loss += F.binary_cross_entropy_with_logits(sal, q_ans)
