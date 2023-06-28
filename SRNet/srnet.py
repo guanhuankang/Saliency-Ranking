@@ -6,7 +6,7 @@ import torch.nn.functional as F
 from detectron2.modeling import META_ARCH_REGISTRY, build_backbone
 
 from .neck import FrcPN, FPN
-from .modules import BBoxDecoder, MaskDecoder, GazeShift, FovealQ, FovealQSA, FovealParallel, PeripheralWOPE
+from .modules import BBoxDecoder, MaskDecoder, GazeShift, FovealQ, FovealQSA, Peripheral
 from .component import PositionEmbeddingRandom
 from .utils import calc_iou, debugDump, pad1d, mask2Boxes, xyhw2xyxy, xyxy2xyhw
 from .loss import hungarianMatcher, batch_mask_loss, batch_bbox_loss
@@ -24,8 +24,8 @@ class SRNet(nn.Module):
         self.pe_layer = PositionEmbeddingRandom(cfg.MODEL.COMMON.EMBED_DIM//2)
         # self.bbox_decoder = BBoxDecoder(cfg)
         # self.mask_decoder = MaskDecoder(cfg)
-        self.fovealqsa = FovealParallel(cfg)
-        self.gaze_shift = PeripheralWOPE(cfg)
+        self.fovealqsa = FovealQSA(cfg)
+        self.gaze_shift = Peripheral(cfg)
 
         self.register_buffer("pixel_mean", torch.tensor(cfg.MODEL.PIXEL_MEAN).reshape(1, -1, 1, 1), False)
         self.register_buffer("pixel_std", torch.tensor(cfg.MODEL.PIXEL_STD).reshape(1, 3, 1, 1), False)
@@ -49,12 +49,34 @@ class SRNet(nn.Module):
             for k in zs
         )
 
+        # q, qpe, aux_bboxes, pred_objs = self.bbox_decoder(
+        #     z=zs["res5"].flatten(2).transpose(-1, -2),
+        #     zpe=self.pe_layer(zs["res5"].shape[2::]).unsqueeze(0).expand(bs, -1, -1, -1).flatten(2).transpose(-1, -2)
+        # )
+        # aux_bboxes = torch.sigmoid(aux_bboxes)  ## xyhw
+
         q, qpe, pred_masks, pred_bboxes, pred_objs = self.fovealqsa(
             feats=zs,
             feats_pe=zs_pe
         )
         pred_bboxes = torch.sigmoid(pred_bboxes)  ## B, nq, 4 [xyhw] in [0,1]
         gaze_shift_key = self.cfg.MODEL.MODULES.GAZE_SHIFT.KEY
+
+        # q, pred_masks, pred_bboxes = self.foveal(
+        #     q=q,
+        #     qpe=qpe,
+        #     feats=zs,
+        #     feats_pe=zs_pe
+        # )
+        # pred_bboxes = torch.sigmoid(pred_bboxes)  ## xyhw
+
+        # pred_masks = self.mask_decoder(
+        #     q=q,
+        #     z=zs["res3"].flatten(2).transpose(-1, -2),
+        #     qpe=qpe,
+        #     zpe=self.pe_layer(zs["res3"].shape[2::]).unsqueeze(0).expand(bs, -1, -1, -1).flatten(2).transpose(-1, -2),
+        #     size=tuple(zs["res3"].shape[2::])
+        # )
 
         if self.training:
             ## Training
@@ -82,8 +104,8 @@ class SRNet(nn.Module):
                 obj_pos_weight = torch.tensor(self.cfg.LOSS.WEIGHTS.OBJ_POS, device=self.device)
                 obj_neg_weight = torch.tensor(self.cfg.LOSS.WEIGHTS.OBJ_NEG, device=self.device)
             
-            pos = q_corresponse.gt(.5).float()
-            neg = q_corresponse.le(.5).float()
+            # pos = q_corresponse.gt(.5).float()
+            # neg = q_corresponse.le(.5).float()
 
             mask_loss = batch_mask_loss(pred_masks[bi, qi], q_masks[bi, ti]).mean()
             
