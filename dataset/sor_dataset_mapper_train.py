@@ -47,7 +47,7 @@ def sor_dataset_mapper_train(dataset_dict, cfg):
 
     ## data aug
     transform = A.Compose([
-        # A.HorizontalFlip(p=0.5),
+        A.HorizontalFlip(p=0.5),
         A.Resize(cfg.INPUT.FT_SIZE_TRAIN, cfg.INPUT.FT_SIZE_TRAIN)
         # A.LongestMaxSize(max_size=cfg.INPUT.FT_SIZE_TRAIN),
         # A.PadIfNeeded(min_height=cfg.INPUT.FT_SIZE_TRAIN, min_width=cfg.INPUT.FT_SIZE_TRAIN)
