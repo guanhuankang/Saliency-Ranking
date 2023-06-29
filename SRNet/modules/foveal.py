@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from detectron2.config import configurable
 from ..component import Attention, MLPBlock, init_weights_
+from ..neck import FRC, FPNLayer
 
 
 class AcuityStep(nn.Module):
@@ -38,44 +39,39 @@ class AcuityLayer(nn.Module):
             for key in key_features
         ))
         self.res_steps = nn.ModuleDict(dict(
-            (key, AcuityStep(
-                embed_dim=embed_dim, 
-                num_heads=num_heads,
-                hidden_dim=hidden_dim,
-                dropout_attn=dropout_attn,
-                dropout_ffn=dropout_ffn
-            ))
-            for key in key_features
+            (key, FRC(embed_dim, embed_dim))
+            for key in key_features[1::]  ## only for res4/res3/...
         ))
         self.key_features = key_features
 
-        self.fuse = nn.ModuleDict(dict(
-            (key, nn.Sequential(nn.Linear(embed_dim, embed_dim//2), nn.ReLU(), nn.Linear(embed_dim//2, 1)))
+        n_keys = len(key_features)
+        ddim = embed_dim // 2
+        self.proj = nn.ModuleDict(dict(
+            (key, nn.Sequential(nn.Linear(embed_dim, ddim), nn.ReLU()))
             for key in key_features)
         )
+        self.fuse = nn.Sequential(nn.Linear(ddim * n_keys, embed_dim), nn.LayerNorm(embed_dim))
+
+        init_weights_(self.proj)
         init_weights_(self.fuse)
     
-    def forward(self, q, zs):
+    def forward(self, q, qpe, feats, feats_pe):
         ## Update q
         qs = []
-        ws = []
         for key in self.key_features:
-            k = zs[key]  ## B, hw, C
-            f = self.acuity_steps[key](q=q, k=k, v=k)  ## B, nq, C
-            w = self.fuse[key](f)  ## B, nq, 1
-            qs.append(f)
-            ws.append(w)
-        ws = torch.softmax(torch.stack(ws, dim=0), dim=0)  ## n, B, nq, 1
-        qs = torch.stack(qs, dim=0)  ## n, B, nq, C
-        q = torch.sum(ws * qs, dim=0)  ## B, nq, C
+            k = feats[key].flatten(2).transpose(-1, -2)  ## B, hw, C
+            kpe = feats_pe[key].flatten(2).transpose(-1, -2)  ## B, hw, C
+            f = self.acuity_steps[key](q=q+qpe, k=k+kpe, v=k)  ## B, nq, C
+            qs.append(self.proj[key](f))  ## B, nq, ddim
+        q = self.fuse(torch.cat(qs, dim=-1))  ## B, nq, C
 
         ## Update feats
-        for key in self.key_features:
-            k = zs[key]
-            k = self.res_steps[key](q=k, k=q, v=q)  ## B, hw, C
-            zs[key] = k
+        n_keys = len(self.key_features)
+        for i in range(n_keys-1):
+            high, low = self.key_features[i], self.key_features[i+1]
+            feats[low] = self.res_steps[low](feats[high], feats[low])
 
-        return q, zs
+        return q, feats
 
 class AcuityBlock(nn.Module):
     def __init__(self, embed_dim=256, num_heads=8, hidden_dim=1024, dropout_attn=0.0, dropout_ffn=0.0, key_features=["res5","res4","res3"], num_blocks=3):
@@ -93,12 +89,9 @@ class AcuityBlock(nn.Module):
         ])
         self.key_features = key_features
     
-    def forward(self, q, feats):
-        sizes = dict((k, v.shape) for k, v in feats.items())
-        feats = dict((k, v.flatten(2).transpose(-1, -2)) for k, v in feats.items())
+    def forward(self, q, qpe, feats, feats_pe):
         for layer in self.layers:
-            q, feats = layer(q, feats)
-        feats = dict((k, v.transpose(-1, -2).reshape(sizes[k])) for k, v in feats.items())
+            q, feats = layer(q, qpe, feats, feats_pe)
         return q, feats
 
 class FovealParallel(nn.Module):
@@ -155,10 +148,10 @@ class FovealParallel(nn.Module):
         """
         low_key = self.key_features[-1]  ## higher resolution
         B, _, H, W = feats[low_key].shape
-        qpe = self.qpe.expand(B, -1, -1)  ## B, nq, C
 
         q = self.q.expand(B, -1, -1)  ## B, nq, C
-        q, feats = self.acuity(q, feats)
+        qpe = self.qpe.expand(B, -1, -1)  ## B, nq, C
+        q, feats = self.acuity(q, qpe, feats, feats_pe)
         low_z = feats[low_key]  ## B, C, H, W
 
         masks = (self.mlp(q) @ low_z.flatten(2)).unflatten(-1, (H, W))  ## B, nq, H, W
