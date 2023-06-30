@@ -89,18 +89,6 @@ class Trainer(DefaultTrainer):
                     super().__init__(params, defaults)
                     self.count_iters = 0
                     self.iters_per_step = cfg.SOLVER.ITERS_PER_STEP
-                    print(f"NUM_ITERS_TO_STEP: {cfg.SOLVER.ITERS_PER_STEP}", flush=True)
-                    self.cmd = os.path.join(cfg.OUTPUT_DIR, "command")
-                    os.makedirs(self.cmd, exist_ok=True)
-
-                def exitCommand(self):
-                    if comm.is_main_process():
-                        quit_cmd = "quit"
-                        cmd_lst = os.listdir(self.cmd)
-                        if quit_cmd in cmd_lst:
-                            os.remove(os.path.join(self.cmd, quit_cmd))
-                            print("Exit Command", cmd_lst)
-                            exit(0)
 
                 def step(self, closure=None):
                     all_params = itertools.chain(*[x["params"] for x in self.param_groups])
@@ -109,7 +97,6 @@ class Trainer(DefaultTrainer):
 
                 def zero_grad(self, set_to_none: bool = True):
                     super().zero_grad(set_to_none)
-                    self.exitCommand()
 
             return FullModelGradientClippingOptimizer if enable else optim
 
