@@ -6,7 +6,7 @@ import torch.nn.functional as F
 from detectron2.modeling import META_ARCH_REGISTRY, build_backbone
 
 from .neck import FrcPN
-from .modules import BBoxDecoder, MaskDecoder, GazeShift, FovealQ, FovealQSA
+from .modules import GazeShift, FovealQSA
 from .component import PositionEmbeddingRandom
 from .utils import calc_iou, debugDump, pad1d, mask2Boxes, xyhw2xyxy, xyxy2xyhw
 from .loss import hungarianMatcher, batch_mask_loss, batch_bbox_loss

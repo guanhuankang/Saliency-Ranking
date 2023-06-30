@@ -12,7 +12,7 @@ from .utils import calc_iou, debugDump, pad1d, mask2Boxes, xyhw2xyxy, xyxy2xyhw
 from .loss import hungarianMatcher, batch_mask_loss, batch_bbox_loss
 
 @META_ARCH_REGISTRY.register()
-class Debug(nn.Module):
+class SRParallelSA(nn.Module):
     """
     SRFoveal: backbone+neck+fovealq+gazeshift (foveal w/o sa)
     """
