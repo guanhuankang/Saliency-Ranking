@@ -55,8 +55,8 @@ LOSS:
         OBJ_POS: 30.0
         OBJ_NEG: 1.0
 DATASETS:
-    TRAIN: ("irsr_train",)
-    TEST: ("irsr_test",)
+    TRAIN: ("assr_train",)
+    TEST: ("assr_test",)
     ENV:
         WORK: "D:/SaliencyRanking/dataset/coco_sor"
         GROUP4090: "/home/ryn02/hkguan/saliencyranking/dataset/coco_sor"
