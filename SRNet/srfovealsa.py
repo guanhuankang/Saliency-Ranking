@@ -148,10 +148,10 @@ class SRFovealSA(nn.Module):
                 )
 
             return {
-                "mask_loss": mask_loss,
-                "obj_loss": obj_loss,
-                "bbox_loss": bbox_loss,
-                "sal_loss": sal_loss * self.cfg.LOSS.WEIGHTS.SALIENCY
+                "mask_loss": mask_loss * self.cfg.LOSS.WEIGHTS.MASK_COST,
+                "obj_loss": obj_loss * self.cfg.LOSS.WEIGHTS.CLS_COST,
+                "bbox_loss": bbox_loss * self.cfg.LOSS.WEIGHTS.BBOX_COST,
+                "sal_loss": sal_loss * self.cfg.LOSS.WEIGHTS.SAL_COST
             }
             ## end training
         else:
