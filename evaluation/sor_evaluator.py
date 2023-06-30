@@ -73,7 +73,7 @@ class SOREvaluator(DatasetEvaluator):
         for inp, out in zip(inputs, outputs):
             image_name = inp["image_name"]
             preds = out["masks"]
-            gts = list(inp["masks"])
+            gts = list(inp["masks"].detach().cpu().numpy())
 
             ## UpperBound
             if self.cfg.TEST.UPPER_BOUND:
