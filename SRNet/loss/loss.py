@@ -1,6 +1,7 @@
 import torch
 import torch.nn.functional as F
 import torchvision
+from ..utils import xyxy2xyhw
 
 def batch_mask_loss(preds, targets):
     """
@@ -40,7 +41,7 @@ def batch_bbox_loss(box1, box2):
         gloss = torchvision.ops.generalized_box_iou_loss(box1, box2)  ## N
     else:
         gloss = -torch.diag(torchvision.ops.generalized_box_iou(box1, box2))  ## N
-    l1loss = F.l1_loss(box1, box2, reduction="none").mean(dim=-1)
+    l1loss = F.l1_loss( xyxy2xyhw(box1), xyxy2xyhw(box2), reduction="none").mean(dim=-1)
     return gloss+l1loss
 
 

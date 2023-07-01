@@ -36,27 +36,27 @@ MODEL:
             NUM_BLOCKS: 4
             KEY_FEATURES: ["res5", "res4", "res3"]
         FOVEALQ:
-            NUM_BLOCKS: 4
+            NUM_BLOCKS: 6
             KEY_FEATURES: ["res5", "res4", "res3"]
     COMMON:
         EMBED_DIM: 512
         NUM_HEADS: 8
         HIDDEN_DIM: 1024
-        DROPOUT_ATTN: 0.0
-        DROPOUT_FFN: 0.3
+        DROPOUT_ATTN: 0.1
+        DROPOUT_FFN: 0.2
         NUM_QUERIES: 100
     WEIGHTS: "pretrained/swin_base_patch4_window12_384_22k.pth"
 LOSS:
     WEIGHTS:
-        CLS_COST: 1.0
+        CLS_COST: 2.0
         MASK_COST: 1.0
-        BBOX_COST: 1.0
-        SAL_COST: 5.0
-        OBJ_POS: 30.0
+        BBOX_COST: 5.0
+        SAL_COST: 1.0
+        OBJ_POS: 20.0
         OBJ_NEG: 1.0
 DATASETS:
-    TRAIN: ("irsr_train",)
-    TEST: ("irsr_test",)
+    TRAIN: ("assr_train",)
+    TEST: ("assr_test",)
     ENV:
         WORK: "D:/SaliencyRanking/dataset/coco_sor"
         GROUP4090: "/home/ryn02/hkguan/saliencyranking/dataset/coco_sor"
@@ -74,7 +74,7 @@ SOLVER:
     CHECKPOINT_PERIOD: 5000
     CLIP_GRADIENTS:
         CLIP_TYPE: full_model
-        CLIP_VALUE: 0.01
+        CLIP_VALUE: 1.0
         ENABLED: true
         NORM_TYPE: 2.0
     GAMMA: 0.1
@@ -83,8 +83,8 @@ SOLVER:
     LR_SCHEDULER_NAME: WarmupMultiStepLR
     MOMENTUM: 0.9
     OPTIMIZER: ADAMW
-    STEPS: (20000,50000)
-    MAX_ITER: 60000
+    STEPS: (20000,28000)
+    MAX_ITER: 30000
     REFERENCE_WORLD_SIZE: 0
     WARMUP_FACTOR: 1.0
     WARMUP_ITERS: 100
