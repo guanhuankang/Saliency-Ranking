@@ -33,7 +33,7 @@ MODEL:
             ALPHA: 1.0
             KEY: "res5"
         FOVEAL:
-            NUM_BLOCKS: 4
+            NUM_BLOCKS: 6
             KEY_FEATURES: ["res5", "res4", "res3"]
         FOVEALQ:
             NUM_BLOCKS: 6
@@ -48,11 +48,11 @@ MODEL:
     WEIGHTS: "pretrained/swin_base_patch4_window12_384_22k.pth"
 LOSS:
     WEIGHTS:
-        CLS_COST: 2.0
+        CLS_COST: 1.0
         MASK_COST: 1.0
-        BBOX_COST: 5.0
-        SAL_COST: 1.0
-        OBJ_POS: 20.0
+        BBOX_COST: 1.0
+        SAL_COST: 5.0
+        OBJ_POS: 30.0
         OBJ_NEG: 1.0
 DATASETS:
     TRAIN: ("assr_train",)
@@ -74,7 +74,7 @@ SOLVER:
     CHECKPOINT_PERIOD: 5000
     CLIP_GRADIENTS:
         CLIP_TYPE: full_model
-        CLIP_VALUE: 1.0
+        CLIP_VALUE: 0.01
         ENABLED: true
         NORM_TYPE: 2.0
     GAMMA: 0.1
@@ -88,7 +88,7 @@ SOLVER:
     REFERENCE_WORLD_SIZE: 0
     WARMUP_FACTOR: 1.0
     WARMUP_ITERS: 100
-    WEIGHT_DECAY: 0.05
+    WEIGHT_DECAY: 0.0001
 INPUT:
     FT_SIZE_TRAIN: 800
     FT_SIZE_TEST: 800
