@@ -9,7 +9,7 @@ class FPNLayer(nn.Module):
     def __init__(self, dim=256):
         super().__init__()
         self.scale = nn.Conv2d(dim, dim, 3, padding=1)
-        self.conv = nn.Conv2d(dim, dim, 1)
+        self.conv = nn.Sequential(nn.Conv2d(dim, dim, 1), nn.GELU(), LayerNorm2D(dim))
     
     def forward(self, high_feat, low_feat):
         high_feat = F.interpolate(high_feat, size=low_feat.shape[2::], mode="bilinear")
