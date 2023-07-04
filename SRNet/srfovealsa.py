@@ -107,13 +107,18 @@ class SRFovealSA(nn.Module):
             # pos = q_corresponse.gt(.5).float()
             # neg = q_corresponse.le(.5).float()
 
-            mask_loss = batch_mask_loss(pred_masks[bi, qi], q_masks[bi, ti]).mean()
+            num_masks = torch.as_tensor([len(bi)], device=self.device)
+            if self.cfg.SOLVER.NUM_GPUS > 1:
+                torch.distributed.all_reduce(num_masks)
+            num_masks = max(num_masks.item(), 1.0)
+
+            mask_loss = batch_mask_loss(pred_masks[bi, qi], q_masks[bi, ti]).sum() / num_masks
             
             obj_loss = F.binary_cross_entropy_with_logits(pred_objs, q_corresponse.gt(.5).float(), pos_weight=obj_pos_weight/obj_neg_weight) * obj_neg_weight
             # obj_loss = (F.l1_loss(torch.sigmoid(pred_objs), torch.ones_like(pred_objs), reduction="none") * pos * obj_pos_weight + \
             # F.l1_loss(torch.sigmoid(pred_objs), torch.zeros_like(pred_objs), reduction="none") * neg).mean()
 
-            bbox_loss = batch_bbox_loss(xyhw2xyxy(pred_bboxes[bi, qi]), q_boxes[bi, ti]).mean()
+            bbox_loss = batch_bbox_loss(xyhw2xyxy(pred_bboxes[bi, qi]), q_boxes[bi, ti]).sum() / num_masks
             sal_loss = torch.zeros_like(obj_loss).mean()  ## initialize as zero
 
             ## saliency loss
