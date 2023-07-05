@@ -17,7 +17,7 @@ MODEL:
         PRETRAIN_IMG_SIZE: 384
         OUT_FEATURES: ["res2", "res3", "res4", "res5"]
     NECK:
-        DIM: 512
+        DIM: 256
         NUM_FEATURES: (256,512,1024)
         FEATURE_KEYS: ["res3", "res4", "res5"]
     MODULES:
@@ -38,12 +38,16 @@ MODEL:
         FOVEALQ:
             NUM_BLOCKS: 6
             KEY_FEATURES: ["res5", "res4", "res3"]
+        FOVEALDYNAMIC:
+            MERGE_NAME: "FovealStep"
+            NUM_BLOCKS: 6
+            KEY_FEATURES: ["res5", "res4", "res3"]
     COMMON:
-        EMBED_DIM: 512
+        EMBED_DIM: 256
         NUM_HEADS: 8
-        HIDDEN_DIM: 1024
-        DROPOUT_ATTN: 0.1
-        DROPOUT_FFN: 0.2
+        HIDDEN_DIM: 2048
+        DROPOUT_ATTN: 0.0
+        DROPOUT_FFN: 0.0
         NUM_QUERIES: 100
     WEIGHTS: "pretrained/swin_base_patch4_window12_384_22k.pth"
 LOSS:

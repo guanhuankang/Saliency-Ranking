@@ -18,7 +18,7 @@ MODEL:
         PRETRAIN_IMG_SIZE: 384
         OUT_FEATURES: ["res2", "res3", "res4", "res5"]
     NECK:
-        DIM: 512
+        DIM: 256
         NUM_FEATURES: (384,768,1536)
         FEATURE_KEYS: ["res3", "res4", "res5"]
     MODULES:
@@ -34,17 +34,21 @@ MODEL:
             ALPHA: 1.0
             KEY: "res5"
         FOVEAL:
-            NUM_BLOCKS: 4
+            NUM_BLOCKS: 6
             KEY_FEATURES: ["res5", "res4", "res3"]
         FOVEALQ:
             NUM_BLOCKS: 6
             KEY_FEATURES: ["res5", "res4", "res3"]
+        FOVEALDYNAMIC:
+            MERGE_NAME: "FovealStep"
+            NUM_BLOCKS: 6
+            KEY_FEATURES: ["res5", "res4", "res3"]
     COMMON:
-        EMBED_DIM: 512
+        EMBED_DIM: 256
         NUM_HEADS: 8
-        HIDDEN_DIM: 1024
-        DROPOUT_ATTN: 0.3
-        DROPOUT_FFN: 0.3
+        HIDDEN_DIM: 2048
+        DROPOUT_ATTN: 0.0
+        DROPOUT_FFN: 0.0
         NUM_QUERIES: 100
     WEIGHTS: "pretrained/swin_large_patch4_window12_384_22k.pth"
 LOSS:
@@ -70,7 +74,7 @@ DATALOADER:
 SOLVER:
     AMP:
         ENABLED: true
-    BACKBONE_MULTIPLIER: 0.1
+    BACKBONE_MULTIPLIER: 1.0
     BASE_LR: 0.0001
     CHECKPOINT_PERIOD: 5000
     CLIP_GRADIENTS:
