@@ -106,7 +106,15 @@ class SRDynamic(nn.Module):
             aux_bbox_loss = torch.zeros_like(bbox_loss)
             aux_obj_loss  = torch.zeros_like(obj_loss)
             if True: ## aux loss
-                for aux_out in aux_predictions:
+                n_aux = len(aux_predictions)
+                if self.cfg.LOSS.WEIGHTS.AUX=="linear":
+                    aux_weights = torch.linspace(0.0, 1.0, n_aux, device=self.device) * self.cfg.LOSS.WEIGHTS.AUX_WEIGHT
+                else:
+                    aux_weights = torch.ones(n_aux, device=self.device) * self.cfg.LOSS.WEIGHTS.AUX_WEIGHT
+                for i in range(n_aux):
+                    aux_out = aux_predictions[i]
+                    aux_w = aux_weights[i]
+
                     aux_masks = F.interpolate(aux_out["masks"], size=gt_size, mode="bilinear")
                     aux_scores = aux_out["scores"]
                     aux_bboxes = aux_out["bboxes"].sigmoid()
@@ -115,13 +123,13 @@ class SRDynamic(nn.Module):
                     aux_corr = torch.zeros_like(aux_scores)  ## B, nq, 1
                     aux_corr[abi, aqi, 0] = (ati + 1).to(aux_corr.dtype)  ## B, nq, 1
 
-                    aux_mask_loss += batch_mask_loss(aux_masks[abi, aqi], q_masks[abi, ati]).mean()
-                    aux_bbox_loss += batch_bbox_loss(xyhw2xyxy(aux_bboxes[abi, aqi]), q_boxes[abi, ati]).mean()
+                    aux_mask_loss += batch_mask_loss(aux_masks[abi, aqi], q_masks[abi, ati]).mean() * aux_w
+                    aux_bbox_loss += batch_bbox_loss(xyhw2xyxy(aux_bboxes[abi, aqi]), q_boxes[abi, ati]).mean() * aux_w
                     aux_obj_loss  += F.binary_cross_entropy_with_logits(
                         aux_scores, 
                         aux_corr.gt(.5).float(), 
                         pos_weight=obj_pos_weight
-                    ) * obj_neg_weight
+                    ) * obj_neg_weight * aux_w
 
             sal_loss = torch.zeros_like(obj_loss).mean()  ## initialize as zero
             for i in range(n_max+1):

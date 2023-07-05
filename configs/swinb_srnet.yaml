@@ -58,6 +58,8 @@ LOSS:
         SAL_COST: 5.0
         OBJ_POS: 30.0
         OBJ_NEG: 1.0
+        AUX: "linear"
+        AUX_WEIGHT: 0.4
 DATASETS:
     TRAIN: ("assr_train",)
     TEST: ("assr_test",)

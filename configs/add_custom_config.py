@@ -70,6 +70,8 @@ def add_custom_config(cfg, num_gpus=1):
     cfg.LOSS.WEIGHTS.SAL_COST = 1.0
     cfg.LOSS.WEIGHTS.OBJ_POS = 30.0
     cfg.LOSS.WEIGHTS.OBJ_NEG = 1.0
+    cfg.LOSS.WEIGHTS.AUX = "linear"
+    cfg.LOSS.WEIGHTS.AUX_WEIGHT = 0.4
 
     cfg.DATASETS.ROOT = ""
     cfg.DATASETS.ENV = CN()
