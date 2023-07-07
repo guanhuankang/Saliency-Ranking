@@ -11,9 +11,9 @@ MODEL:
     NECK:
         NAME: "FrcPN"
     SIS_HEAD:
-        NAME: "Mask2Former"
-        NUM_BLOCKS: 9
-        KEY_FEATURES: ["res5", "res4", "res3", "res2"]
+        NAME: "FovealQSADeep"
+        NUM_BLOCKS: 6
+        KEY_FEATURES: ["res5", "res4", "res3"]
     GAZE_SHIFT_HEAD:
         NAME: "GazeShift"
         NUM_BLOCKS: 3
@@ -32,11 +32,11 @@ LOSS:
     CLS_COST: 1.0
     MASK_COST: 1.0
     BBOX_COST: 1.0
-    SAL_COST: 1.0
-    OBJ_POS: 10.0
-    OBJ_NEG: 0.1
+    SAL_COST: 5.0
+    OBJ_POS: 30.0
+    OBJ_NEG: 1.0
     AUX_WEIGHT: 0.4
-    AUX: "disable"
+    AUX: "enable"
 DATASETS:
     TRAIN: ("assr_train",)
     TEST: ("assr_test",)
@@ -79,7 +79,7 @@ INPUT:
     MIN_SIZE_TEST: 640
     MAX_SIZE_TEST: 1333
     FORMAT: "RGB"
-OUTPUT_DIR: "output/"
+OUTPUT_DIR: "output/srnet"
 TEST:
     EVAL_PERIOD: 5000
     METRICS_OF_INTEREST: ["mae", "acc", "fbeta", "iou", "sa_sor", "sor", "ap", "ar", "top1", "top2", "top3", "top4", "top5"]
