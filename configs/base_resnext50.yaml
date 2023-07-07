@@ -2,54 +2,24 @@ MODEL:
     META_ARCHITECTURE: "SRM2F"
     PIXEL_MEAN: [123.675, 116.280, 103.530]
     PIXEL_STD: [58.395, 57.120, 57.375]
+    WEIGHTS: "ckp_of_R50_from_torchvision_pretrained"
     BACKBONE:
-        NAME: "D2SwinTransformer"
-        NUM_FEATURES: (128,256,512,1024)
+        NAME: "ResNeXt50"
+        NUM_FEATURES: (256,512,1024,2048)
         FEATURE_KEYS: ["res2", "res3", "res4", "res5"]
-    SWIN:
-        EMBED_DIM: 128
-        DEPTHS: [2, 2, 18, 2]
-        NUM_HEADS: [4, 8, 16, 32]
-        WINDOW_SIZE: 12
-        APE: False
-        DROP_PATH_RATE: 0.3
-        PATCH_NORM: True
-        PRETRAIN_IMG_SIZE: 384
-        OUT_FEATURES: ["res2", "res3", "res4", "res5"]
     NECK:
         NAME: "FrcPN"
-        DIM: 256
-        NUM_FEATURES: (256,512,1024)
-        FEATURE_KEYS: ["res3", "res4", "res5"]
     SIS_HEAD:
         NAME: "Mask2Former"
+        NUM_BLOCKS: 9
+        KEY_FEATURES: ["res5", "res4", "res3", "res2"]
     GAZE_SHIFT_HEAD:
         NAME: "GazeShift"
-    MODULES:
-        BBOX_DECODER:
-            NUM_BLOCKS: 4
-            NUM_QUERIES: 100
-        MASK_DECODER:
-            NUM_BLOCKS: 2
-        GAZE_SHIFT:
-            NUM_BLOCKS: 3
-            SIGMA: 10.0
-            KERNEL_SIZE: 5
-            ALPHA: 1.0
-            KEY: "res5"
-        FOVEAL:
-            NUM_BLOCKS: 6
-            KEY_FEATURES: ["res5", "res4", "res3"]
-        FOVEALQ:
-            NUM_BLOCKS: 6
-            KEY_FEATURES: ["res5", "res4", "res3"]
-        FOVEALDYNAMIC:
-            MERGE_NAME: "FovealStep"
-            NUM_BLOCKS: 6
-            KEY_FEATURES: ["res5", "res4", "res3"]
-        MASK2FORMER:
-            NUM_BLOCKS: 9
-            KEY_FEATURES: ["res5", "res4", "res3"]
+        NUM_BLOCKS: 3
+        SIGMA: 10.0
+        KERNEL_SIZE: 5
+        ALPHA: 1.0
+        KEY: "res5"
     COMMON:
         EMBED_DIM: 256
         NUM_HEADS: 8
@@ -57,17 +27,15 @@ MODEL:
         DROPOUT_ATTN: 0.0
         DROPOUT_FFN: 0.0
         NUM_QUERIES: 100
-    WEIGHTS: "pretrained/swin_base_patch4_window12_384_22k.pth"
 LOSS:
-    WEIGHTS:
-        CLS_COST: 1.0
-        MASK_COST: 1.0
-        BBOX_COST: 1.0
-        SAL_COST: 1.0
-        OBJ_POS: 10.0
-        OBJ_NEG: 0.1
-        AUX_WEIGHT: 0.4
-        AUX: "disable"
+    CLS_COST: 1.0
+    MASK_COST: 1.0
+    BBOX_COST: 1.0
+    SAL_COST: 1.0
+    OBJ_POS: 10.0
+    OBJ_NEG: 0.1
+    AUX_WEIGHT: 0.4
+    AUX: "disable"
 DATASETS:
     TRAIN: ("assr_train",)
     TEST: ("assr_test",)

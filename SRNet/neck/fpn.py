@@ -21,7 +21,7 @@ class FPN(nn.Module):
     @configurable
     def __init__(self, dim=256, feat_dims=(128,256,512,1024), feat_keys=["res2","res3","res4","res5"]):
         super().__init__()
-        self.feat_keys = ["res2", "res3", "res4", "res5"]
+        self.feat_keys = feat_keys
         self.lateral_conv = nn.ModuleList([nn.Sequential(
             nn.Conv2d(d_in, dim, 1),
             nn.GELU(),

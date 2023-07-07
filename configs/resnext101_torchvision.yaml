@@ -1,0 +1,6 @@
+_BASE_: base_resnext50.yaml
+MODEL:
+    BACKBONE:
+        NAME: "ResNeXt101"
+    WEIGHTS: "load_torchvision_pretrained_weight"
+    
