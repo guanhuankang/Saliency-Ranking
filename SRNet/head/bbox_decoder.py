@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from ..component import Attention, MLPBlock, init_weights_
+from SRNet.component import Attention, MLPBlock, init_weights_
 from detectron2.config import configurable
 
 class BBoxLayer(nn.Module):

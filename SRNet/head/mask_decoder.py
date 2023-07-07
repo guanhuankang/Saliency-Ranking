@@ -1,11 +1,7 @@
-import torch
 import torch.nn as nn
-from typing import Tuple
-
 from detectron2.config import configurable
-
-from ..component import MLPBlock, Attention
-from ..component import init_weights_
+from SRNet.component import MLPBlock, Attention
+from SRNet.component import init_weights_
 
 class MaskDecoderLayer(nn.Module):
     def __init__(self, embed_dim=256, num_heads=8, hidden_dim=1024, dropout_attn=0.0, dropout_ffn=0.0):
@@ -28,24 +24,24 @@ class MaskDecoderLayer(nn.Module):
 
         init_weights_(self)
 
-    def forward(self, q, z, q_pe, z_pe):
+    def forward(self, q, z, qpe, zpe):
         '''
 
         Args:
             q: B, nq, C
             z: B, HW, C
-            q_pe: B, nq, C
-            z_pe: B, HW, C
+            qpe: B, nq, C
+            zpe: B, HW, C
 
         Returns:
             q: B, nq, C
             z: B, HW, C
 
         '''
-        q = self.norm1(q + self.dropout1(self.self_attn(q=q+q_pe, k=q+q_pe, v=q)))
-        q = self.norm2(q + self.dropout2(self.query_to_feat_attn(q=q+q_pe, k=z+z_pe, v=z)))
+        q = self.norm1(q + self.dropout1(self.self_attn(q=q+qpe, k=q+qpe, v=q)))
+        q = self.norm2(q + self.dropout2(self.query_to_feat_attn(q=q+qpe, k=z+zpe, v=z)))
         q = self.norm3(q + self.dropout3(self.mlp(q)))
-        z = self.norm4(z + self.dropout4(self.feat_to_query_attn(q=z+z_pe, k=q+q_pe, v=q)))
+        z = self.norm4(z + self.dropout4(self.feat_to_query_attn(q=z+zpe, k=q+qpe, v=q)))
         return q, z
 
 class MaskDecoder(nn.Module):
@@ -60,16 +56,11 @@ class MaskDecoder(nn.Module):
         self.query_to_feat_attn = Attention(embedding_dim=embed_dim, num_heads=num_heads)
         self.dropout = nn.Dropout(p=dropout_attn)
         self.norm = nn.LayerNorm(embed_dim)
-
         self.mask_mlp = MLPBlock(embedding_dim=embed_dim, mlp_dim=hidden_dim)
-        self.iou_head = nn.Linear(embed_dim, 1)
-        self.obj_head = nn.Linear(embed_dim, 1)
 
         init_weights_(self.query_to_feat_attn)
         init_weights_(self.norm)
         init_weights_(self.mask_mlp)
-        init_weights_(self.iou_head)
-        init_weights_(self.obj_head)
 
     @classmethod
     def from_config(cls, cfg):
@@ -79,31 +70,26 @@ class MaskDecoder(nn.Module):
             "dropout_attn": cfg.MODEL.COMMON.DROPOUT_ATTN,
             "hidden_dim": cfg.MODEL.COMMON.HIDDEN_DIM,
             "dropout_ffn": cfg.MODEL.COMMON.DROPOUT_FFN,
-            "num_blocks": cfg.MODEL.HEAD.NUM_BLOCKS
+            "num_blocks": cfg.MODEL.MODULES.MASK_DECODER.NUM_BLOCKS
         }
 
-    def forward(self, query, feat, q_pe, z_pe):
-        '''
+    def forward(self, q, z, qpe, zpe, size):
+        """
 
         Args:
-            query: B, nq, C
-            feat: B, C, H, W
-            q_pe: B, nq, C
-            z_pe: B, HW, C
+            q: B, nq, C
+            z: B, hw, C
+            qpe: B, nq, C
+            zpe: B, hw, C
+            size: tuple(int, int)
 
-        Returns: logit
-            masks: B, nq, H, W logit
-            iou_scores: B, nq, 1 logit
-            obj_scores: B, nq, 1 logit
-        '''
-        B, C, H, W = feat.shape
-        z = feat.flatten(2).transpose(-1, -2)  ## B, HW, C
+        Returns:
+            m: B, nq, *size
+        """
         for layer in self.layers:
-            query, z = layer(query, z, q_pe, z_pe)
-        query = self.norm(query+self.dropout(self.query_to_feat_attn(q=query+q_pe, k=z+z_pe, v=z)))  ## B, nq, C
-
-        masks = (self.mask_mlp(query) @ z.transpose(-1, -2)).reshape(B, -1, H, W)  ## B, C, H, W
-        iou_socres = self.iou_head(query)  ## B, nq, 1
-        obj_scores = self.obj_head(query)  ## B, nq, 1
-
-        return masks, iou_socres, obj_scores
+            q, z = layer(q=q, z=z, qpe=qpe, zpe=zpe)
+        q = self.norm(q + self.dropout(self.query_to_feat_attn(q=q+qpe, k=z+zpe, v=z)))
+        q = self.mask_mlp(q)
+        m = q @ z.transpose(-1, -2)
+        m = m.unflatten(2, size)
+        return m

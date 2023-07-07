@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from detectron2.config import configurable
-from ..component import Attention, MLPBlock, init_weights_
+from SRNet.component import Attention, MLPBlock, init_weights_
 
 class AttnFFN(nn.Module):
     def __init__(self, embed_dim=256, num_heads=8, hidden_dim=2048, dropout_attn=0.0, dropout_ffn=0.0):
