@@ -77,12 +77,13 @@ class FrcPN(nn.Module):
         self.frcs = nn.ModuleList([FRC(dim, dim) for _ in feat_dims[0:-1]])
         self.feat_keys = feat_keys
 
+
     @classmethod
     def from_config(cls, cfg):
         return {
-            "dim": cfg.MODEL.NECK.DIM,
-            "feat_dims": cfg.MODEL.NECK.NUM_FEATURES,
-            "feat_keys": cfg.MODEL.NECK.FEATURE_KEYS
+            "dim": cfg.MODEL.COMMON.EMBED_DIM,
+            "feat_dims": cfg.MODEL.BACKBONE.NUM_FEATURES,
+            "feat_keys": cfg.MODEL.BACKBONE.FEATURE_KEYS
         }
 
     def forward(self, feats):

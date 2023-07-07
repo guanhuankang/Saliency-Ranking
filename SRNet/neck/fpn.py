@@ -38,9 +38,9 @@ class FPN(nn.Module):
     @classmethod
     def from_config(cls, cfg):
         return {
-            "dim": cfg.MODEL.NECK.DIM,
-            "feat_dims": cfg.MODEL.NECK.NUM_FEATURES,
-            "feat_keys": cfg.MODEL.NECK.FEATURE_KEYS
+            "dim": cfg.MODEL.COMMON.EMBED_DIM,
+            "feat_dims": cfg.MODEL.BACKBONE.NUM_FEATURES,
+            "feat_keys": cfg.MODEL.BACKBONE.FEATURE_KEYS
         }
 
     def forward(self, feats):

@@ -31,9 +31,9 @@ class PositionEmbeddingRandom(nn.Module):
         # outputs d_1 x ... x d_n x C shape
         return torch.cat([torch.sin(coords), torch.cos(coords)], dim=-1)
 
-    def forward(self, size: Tuple[int, int]) -> torch.Tensor:
+    def forward(self, feat) -> torch.Tensor:
         """Generate positional encoding for a grid of the specified size."""
-        h, w = size
+        h, w = feat.shape[2::]
         device: Any = self.positional_encoding_gaussian_matrix.device
         grid = torch.ones((h, w), device=device, dtype=torch.float32)
         y_embed = grid.cumsum(dim=0) - 0.5
@@ -42,7 +42,9 @@ class PositionEmbeddingRandom(nn.Module):
         x_embed = x_embed / w
 
         pe = self._pe_encoding(torch.stack([x_embed, y_embed], dim=-1))
-        return pe.permute(2, 0, 1)  # C x H x W
+        pe = pe.permute(2, 0, 1)  # C x H x W
+        pe = pe.unsqueeze(0).expand(len(feat), -1, -1, -1)  ## B, C, H, W
+        return pe
 
     def forward_with_coords(
         self, coords_input: torch.Tensor, image_size: Tuple[int, int]

@@ -2,6 +2,7 @@ from detectron2.config import CfgNode as CN
 
 def add_custom_config(cfg, num_gpus=1):
     cfg.MODEL.WEIGHTS = ""
+    cfg.MODEL.PE = "APE"
 
     cfg.MODEL.BACKBONE = CN()
     cfg.MODEL.BACKBONE.NAME = "ResNeXt50"

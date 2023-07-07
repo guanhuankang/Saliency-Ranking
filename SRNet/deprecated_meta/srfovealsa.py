@@ -5,41 +5,26 @@ import torch.nn as nn
 import torch.nn.functional as F
 from detectron2.modeling import META_ARCH_REGISTRY, build_backbone
 
-from .neck import FrcPN, FPN
-from .modules import GazeShift, FovealDynamic
-# from .component import PositionEmbeddingRandom
-from .utils import calc_iou, debugDump, pad1d, mask2Boxes, xyhw2xyxy, xyxy2xyhw
-from .loss import hungarianMatcher, batch_mask_loss, batch_bbox_loss
-
-class LearnablePE(nn.Module):
-    def __init__(self, embed_dim=256):
-        super().__init__()
-        self.ape = nn.parameter.Parameter(torch.zeros((embed_dim, 25, 25)), requires_grad=True)
-        nn.init.trunc_normal_(self.ape)
-    
-    def forward(self, size):
-        """
-        size: (H, W)
-        return: C, H, W
-        """
-        ape = F.interpolate(self.ape.unsqueeze(0), size=size, mode="bilinear")
-        return ape[0]  ## C, H, W
+from SRNet.neck import FrcPN
+from SRNet.modules import GazeShift, FovealQSA
+from SRNet.component import PositionEmbeddingRandom
+from SRNet.utils import calc_iou, debugDump, pad1d, mask2Boxes, xyhw2xyxy, xyxy2xyhw
+from SRNet.loss import hungarianMatcher, batch_mask_loss, batch_bbox_loss
 
 @META_ARCH_REGISTRY.register()
-class SRDynamic(nn.Module):
+class SRFovealSA(nn.Module):
     """
-    SRDynamic: backbone+frcpn+FovealDynamic+gazeshift
-        deep + ape + dynamic
+    SRFoveal: backbone+neck+fovealq+gazeshift (foveal w/o sa)
     """
     def __init__(self, cfg):
         super().__init__()
         self.cfg = cfg
         self.backbone = build_backbone(cfg)
         self.neck = FrcPN(cfg)
-        self.pe_layer = LearnablePE(cfg.MODEL.COMMON.EMBED_DIM)
+        self.pe_layer = PositionEmbeddingRandom(cfg.MODEL.COMMON.EMBED_DIM//2)
         # self.bbox_decoder = BBoxDecoder(cfg)
         # self.mask_decoder = MaskDecoder(cfg)
-        self.fovealqsa = FovealDynamic(cfg)
+        self.fovealqsa = FovealQSA(cfg)
         self.gaze_shift = GazeShift(cfg)
 
         self.register_buffer("pixel_mean", torch.tensor(cfg.MODEL.PIXEL_MEAN).reshape(1, -1, 1, 1), False)
@@ -64,16 +49,34 @@ class SRDynamic(nn.Module):
             for k in zs
         )
 
-        ## return q, qpe, out, aux_predictions
-        q, qpe, out, aux_predictions = self.fovealqsa(
+        # q, qpe, aux_bboxes, pred_objs = self.bbox_decoder(
+        #     z=zs["res5"].flatten(2).transpose(-1, -2),
+        #     zpe=self.pe_layer(zs["res5"].shape[2::]).unsqueeze(0).expand(bs, -1, -1, -1).flatten(2).transpose(-1, -2)
+        # )
+        # aux_bboxes = torch.sigmoid(aux_bboxes)  ## xyhw
+
+        q, qpe, pred_masks, pred_bboxes, pred_objs = self.fovealqsa(
             feats=zs,
             feats_pe=zs_pe
         )
-        pred_masks = out["masks"]  ## B, nq, h, w
-        pred_bboxes = out["bboxes"].sigmoid()  ## B, nq, 4 [xyhw] in [0,1]
-        pred_objs = out["scores"]  ## B, nq, 1
-
+        pred_bboxes = torch.sigmoid(pred_bboxes)  ## B, nq, 4 [xyhw] in [0,1]
         gaze_shift_key = self.cfg.MODEL.MODULES.GAZE_SHIFT.KEY
+
+        # q, pred_masks, pred_bboxes = self.foveal(
+        #     q=q,
+        #     qpe=qpe,
+        #     feats=zs,
+        #     feats_pe=zs_pe
+        # )
+        # pred_bboxes = torch.sigmoid(pred_bboxes)  ## xyhw
+
+        # pred_masks = self.mask_decoder(
+        #     q=q,
+        #     z=zs["res3"].flatten(2).transpose(-1, -2),
+        #     qpe=qpe,
+        #     zpe=self.pe_layer(zs["res3"].shape[2::]).unsqueeze(0).expand(bs, -1, -1, -1).flatten(2).transpose(-1, -2),
+        #     size=tuple(zs["res3"].shape[2::])
+        # )
 
         if self.training:
             ## Training
@@ -91,47 +94,29 @@ class SRDynamic(nn.Module):
             q_corresponse = torch.zeros_like(pred_objs)  ## B, nq, 1
             q_corresponse[bi, qi, 0] = (ti + 1).to(q_corresponse.dtype)  ## 1 to n_max
 
-            obj_pos_weight = torch.tensor(self.cfg.LOSS.WEIGHTS.OBJ_POS, device=self.device)
-            obj_neg_weight = torch.tensor(self.cfg.LOSS.WEIGHTS.OBJ_NEG, device=self.device)
+            ## mask loss
+            if self.cfg.LOSS.WEIGHTS.OBJ_POS < 0.0 or self.cfg.LOSS.WEIGHTS.OBJ_NEG < 0.0:
+                n_pos = len(ti) + 1
+                n_neg = int(np.prod(q_corresponse.shape)) + 1
+                obj_pos_weight = torch.tensor(n_neg/(n_pos+n_neg), device=self.device)
+                obj_neg_weight = torch.tensor(n_pos/(n_pos+n_neg), device=self.device)
+            else:
+                obj_pos_weight = torch.tensor(self.cfg.LOSS.WEIGHTS.OBJ_POS, device=self.device)
+                obj_neg_weight = torch.tensor(self.cfg.LOSS.WEIGHTS.OBJ_NEG, device=self.device)
+            
+            # pos = q_corresponse.gt(.5).float()
+            # neg = q_corresponse.le(.5).float()
 
             mask_loss = batch_mask_loss(pred_masks[bi, qi], q_masks[bi, ti]).mean()
+            
+            obj_loss = F.binary_cross_entropy_with_logits(pred_objs, q_corresponse.gt(.5).float(), pos_weight=obj_pos_weight/obj_neg_weight) * obj_neg_weight
+            # obj_loss = (F.l1_loss(torch.sigmoid(pred_objs), torch.ones_like(pred_objs), reduction="none") * pos * obj_pos_weight + \
+            # F.l1_loss(torch.sigmoid(pred_objs), torch.zeros_like(pred_objs), reduction="none") * neg).mean()
+
             bbox_loss = batch_bbox_loss(xyhw2xyxy(pred_bboxes[bi, qi]), q_boxes[bi, ti]).mean()
-            obj_loss = F.binary_cross_entropy_with_logits(
-                pred_objs, 
-                q_corresponse.gt(.5).float(), 
-                pos_weight=obj_pos_weight
-            ) * obj_neg_weight
-
-            aux_mask_loss = torch.zeros_like(mask_loss)
-            aux_bbox_loss = torch.zeros_like(bbox_loss)
-            aux_obj_loss  = torch.zeros_like(obj_loss)
-            if True: ## aux loss
-                n_aux = len(aux_predictions)
-                if self.cfg.LOSS.WEIGHTS.AUX=="linear":
-                    aux_weights = torch.linspace(0.0, 1.0, n_aux, device=self.device) * self.cfg.LOSS.WEIGHTS.AUX_WEIGHT
-                else:
-                    aux_weights = torch.ones(n_aux, device=self.device) * self.cfg.LOSS.WEIGHTS.AUX_WEIGHT
-                for i in range(n_aux):
-                    aux_out = aux_predictions[i]
-                    aux_w = aux_weights[i]
-
-                    aux_masks = F.interpolate(aux_out["masks"], size=gt_size, mode="bilinear")
-                    aux_scores = aux_out["scores"]
-                    aux_bboxes = aux_out["bboxes"].sigmoid()
-
-                    abi, aqi, ati = hungarianMatcher(preds={"masks": aux_masks, "scores": aux_scores}, targets=masks)
-                    aux_corr = torch.zeros_like(aux_scores)  ## B, nq, 1
-                    aux_corr[abi, aqi, 0] = (ati + 1).to(aux_corr.dtype)  ## B, nq, 1
-
-                    aux_mask_loss += batch_mask_loss(aux_masks[abi, aqi], q_masks[abi, ati]).mean() * aux_w
-                    aux_bbox_loss += batch_bbox_loss(xyhw2xyxy(aux_bboxes[abi, aqi]), q_boxes[abi, ati]).mean() * aux_w
-                    aux_obj_loss  += F.binary_cross_entropy_with_logits(
-                        aux_scores, 
-                        aux_corr.gt(.5).float(), 
-                        pos_weight=obj_pos_weight
-                    ) * obj_neg_weight * aux_w
-
             sal_loss = torch.zeros_like(obj_loss).mean()  ## initialize as zero
+
+            ## saliency loss
             for i in range(n_max+1):
                 # q_vis_gt = q_corresponse.gt(i).float() * torch.rand_like(q_corresponse).le(0.15).float()
                 q_vis = q_corresponse * q_corresponse.le(i).float()  # + q_vis_gt
@@ -166,10 +151,7 @@ class SRDynamic(nn.Module):
                 "mask_loss": mask_loss * self.cfg.LOSS.WEIGHTS.MASK_COST,
                 "obj_loss": obj_loss * self.cfg.LOSS.WEIGHTS.CLS_COST,
                 "bbox_loss": bbox_loss * self.cfg.LOSS.WEIGHTS.BBOX_COST,
-                "sal_loss": sal_loss * self.cfg.LOSS.WEIGHTS.SAL_COST,
-                "aux_mask_loss": aux_mask_loss,
-                "aux_bbox_loss": aux_bbox_loss,
-                "aux_obj_loss": aux_obj_loss,
+                "sal_loss": sal_loss * self.cfg.LOSS.WEIGHTS.SAL_COST
             }
             ## end training
         else:

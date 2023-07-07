@@ -52,11 +52,10 @@ class GazeShift(nn.Module):
             "dropout_attn": cfg.MODEL.COMMON.DROPOUT_ATTN,
             "hidden_dim":   cfg.MODEL.COMMON.HIDDEN_DIM,
             "dropout_ffn":  cfg.MODEL.COMMON.DROPOUT_FFN,
-
-            "num_blocks":   cfg.MODEL.MODULES.GAZE_SHIFT.NUM_BLOCKS,
-            "sigma":        cfg.MODEL.MODULES.GAZE_SHIFT.SIGMA,
-            "kernel_size":  cfg.MODEL.MODULES.GAZE_SHIFT.KERNEL_SIZE,
-            "alpha":        cfg.MODEL.MODULES.GAZE_SHIFT.ALPHA
+            "num_blocks":   cfg.MODEL.GAZE_SHIFT_HEAD.NUM_BLOCKS,
+            "sigma":        cfg.MODEL.GAZE_SHIFT_HEAD.SIGMA,
+            "kernel_size":  cfg.MODEL.GAZE_SHIFT_HEAD.KERNEL_SIZE,
+            "alpha":        cfg.MODEL.GAZE_SHIFT_HEAD.ALPHA
         }
 
     def getGazeMap(self, bbox, size):

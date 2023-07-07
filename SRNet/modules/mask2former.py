@@ -143,8 +143,8 @@ class Mask2Former(nn.Module):
             "dropout_attn": cfg.MODEL.COMMON.DROPOUT_ATTN,
             "hidden_dim":   cfg.MODEL.COMMON.HIDDEN_DIM,
             "dropout_ffn":  cfg.MODEL.COMMON.DROPOUT_FFN,
-            "num_blocks":   cfg.MODEL.MODULES.MASK2FORMER.NUM_BLOCKS,
-            "key_features":   cfg.MODEL.MODULES.MASK2FORMER.KEY_FEATURES
+            "num_blocks":   cfg.MODEL.SIS_HEAD.NUM_BLOCKS,
+            "key_features":   cfg.MODEL.SIS_HEAD.KEY_FEATURES
         }
 
     def forward(self, feats, feats_pe):

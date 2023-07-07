@@ -5,36 +5,27 @@ import torch.nn as nn
 import torch.nn.functional as F
 from detectron2.modeling import META_ARCH_REGISTRY, build_backbone
 
-from .neck import build_neck_head
-from .modules import build_gaze_shift_head, build_sis_head
-from .component import PositionEmbeddingSine
-from .utils import calc_iou, debugDump, pad1d, mask2Boxes, xyhw2xyxy, xyxy2xyhw
-from .loss import hungarianMatcher, batch_mask_loss, batch_bbox_loss
-
-class LearnablePE(nn.Module):
-    def __init__(self, embed_dim=256):
-        super().__init__()
-        self.ape = nn.parameter.Parameter(torch.zeros((embed_dim, 25, 25)), requires_grad=True)
-        nn.init.trunc_normal_(self.ape)
-    
-    def forward(self, size):
-        """
-        size: (H, W)
-        return: C, H, W
-        """
-        ape = F.interpolate(self.ape.unsqueeze(0), size=size, mode="bilinear")
-        return ape[0]  ## C, H, W
+from SRNet.neck import FrcPN, FPN
+from SRNet.modules import GazeShift, FovealQSADeep
+from SRNet.component import PositionEmbeddingRandom
+from SRNet.utils import calc_iou, debugDump, pad1d, mask2Boxes, xyhw2xyxy, xyxy2xyhw
+from SRNet.loss import hungarianMatcher, batch_mask_loss, batch_bbox_loss
 
 @META_ARCH_REGISTRY.register()
-class SRM2F(nn.Module):
+class SRFovealSADeep(nn.Module):
+    """
+    SRFoveal: backbone+neck+fovealq+gazeshift (foveal w/o sa)
+    """
     def __init__(self, cfg):
         super().__init__()
         self.cfg = cfg
-        self.pe_layer = PositionEmbeddingSine(cfg.MODEL.COMMON.EMBED_DIM//2, normalize=True)
         self.backbone = build_backbone(cfg)
-        self.neck = build_neck_head(cfg)
-        self.instance_seg = build_sis_head(cfg)
-        self.gaze_shift = build_gaze_shift_head(cfg)
+        self.neck = FrcPN(cfg)
+        self.pe_layer = PositionEmbeddingRandom(cfg.MODEL.COMMON.EMBED_DIM//2)
+        # self.bbox_decoder = BBoxDecoder(cfg)
+        # self.mask_decoder = MaskDecoder(cfg)
+        self.fovealqsa = FovealQSADeep(cfg)
+        self.gaze_shift = GazeShift(cfg)
 
         self.register_buffer("pixel_mean", torch.tensor(cfg.MODEL.PIXEL_MEAN).reshape(1, -1, 1, 1), False)
         self.register_buffer("pixel_std", torch.tensor(cfg.MODEL.PIXEL_STD).reshape(1, 3, 1, 1), False)
@@ -53,15 +44,18 @@ class SRM2F(nn.Module):
         zs = self.backbone(images)
         zs = self.neck(zs)
 
-        zs_pe = dict((k, self.pe_layer(zs[k])) for k in zs)
+        zs_pe = dict(
+            (k, self.pe_layer(zs[k].shape[2::]).unsqueeze(0).expand(bs, -1, -1, -1))
+            for k in zs
+        )
 
-        q, qpe, out, auxs = self.instance_seg(
+        q, qpe, predictions = self.fovealqsa(
             feats=zs,
             feats_pe=zs_pe
         )
-        pred_masks = out["masks"]  ## B, nq, H, W
-        pred_bboxes = out["bboxes"].sigmoid()  ## B, nq, 4 [xyhw] in [0,1]
-        pred_objs = out["scores"]  ## B, nq, 1
+        pred_masks = predictions[-1]["masks"]
+        pred_bboxes = predictions[-1]["bboxes"].sigmoid()  ## B, nq, 4 [xyhw] in [0,1]
+        pred_objs = predictions[-1]["fg"]
 
         gaze_shift_key = self.cfg.MODEL.MODULES.GAZE_SHIFT.KEY
 
@@ -87,24 +81,20 @@ class SRM2F(nn.Module):
             bbox_loss = batch_bbox_loss(xyhw2xyxy(pred_bboxes[bi, qi]), q_boxes[bi, ti]).mean()
             obj_loss = F.binary_cross_entropy_with_logits(pred_objs, q_corresponse.gt(.5).float(), pos_weight=obj_pos_weight)
 
-            if self.cfg.LOSS.WEIGHTS.AUX=="disable":
-                aux_mask_loss = torch.zeros_like(obj_loss)
-                aux_bbox_loss = torch.zeros_like(obj_loss)
-            else:
-                aux_mask_loss = sum([
-                    batch_mask_loss(
-                        F.interpolate(aux["masks"], size=gt_size, mode="bilinear")[bi, qi],
-                        q_masks[bi, ti]
-                    ).mean()
-                    for aux in auxs
-                ])
-                aux_bbox_loss = sum([
-                    batch_bbox_loss(
-                        xyhw2xyxy(torch.sigmoid(aux["bboxes"][bi, qi])),
-                        q_boxes[bi, ti]
-                    ).mean()
-                    for aux in auxs
-                ])
+            aux_mask_loss = sum([
+                batch_mask_loss(
+                    F.interpolate(predictions[i]["masks"], size=gt_size, mode="bilinear")[bi, qi], 
+                    q_masks[bi, ti]
+                ).mean()
+                for i in range(len(predictions)-1)  ## except for last one
+            ])
+            aux_bbox_loss = sum([
+                batch_bbox_loss(
+                    xyhw2xyxy(torch.sigmoid(predictions[i]["bboxes"][bi, qi])),
+                    q_boxes[bi, ti]
+                ).mean()
+                for i in range(len(predictions)-1)  ## except for last one
+            ])
 
             sal_loss = torch.zeros_like(obj_loss).mean()  ## initialize as zero
             for i in range(n_max+1):
@@ -142,15 +132,15 @@ class SRM2F(nn.Module):
                 "obj_loss": obj_loss * self.cfg.LOSS.WEIGHTS.CLS_COST,
                 "bbox_loss": bbox_loss * self.cfg.LOSS.WEIGHTS.BBOX_COST,
                 "sal_loss": sal_loss * self.cfg.LOSS.WEIGHTS.SAL_COST,
-                "aux_mask_loss": aux_mask_loss * self.cfg.LOSS.WEIGHTS.AUX_WEIGHT,
-                "aux_bbox_loss": aux_bbox_loss * self.cfg.LOSS.WEIGHTS.AUX_WEIGHT
+                "aux_mask_loss": aux_mask_loss * 0.4,
+                "aux_bbox_loss": aux_bbox_loss * 0.4
             }
             ## end training
         else:
             ## inference
             size = tuple(zs[gaze_shift_key].shape[2::])
             z = zs[gaze_shift_key].flatten(2).transpose(-1, -2)
-            zpe = zs_pe[gaze_shift_key].flatten(2).transpose(-1, -2)
+            zpe = self.pe_layer(size).unsqueeze(0).expand(bs, -1, -1, -1).flatten(2).transpose(-1, -2)
             q_vis = torch.zeros_like(pred_objs)
             bs, nq, _ = q.shape
             bs_idx = torch.arange(bs, device=self.device, dtype=torch.long)

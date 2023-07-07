@@ -5,26 +5,41 @@ import torch.nn as nn
 import torch.nn.functional as F
 from detectron2.modeling import META_ARCH_REGISTRY, build_backbone
 
-from .neck import FrcPN, FPN
-from .modules import GazeShift, FovealQSADeep
-from .component import PositionEmbeddingRandom
-from .utils import calc_iou, debugDump, pad1d, mask2Boxes, xyhw2xyxy, xyxy2xyhw
-from .loss import hungarianMatcher, batch_mask_loss, batch_bbox_loss
+from SRNet.neck import FrcPN, FPN
+from SRNet.modules import GazeShift, FovealDynamic
+# from .component import PositionEmbeddingRandom
+from SRNet.utils import calc_iou, debugDump, pad1d, mask2Boxes, xyhw2xyxy, xyxy2xyhw
+from SRNet.loss import hungarianMatcher, batch_mask_loss, batch_bbox_loss
+
+class LearnablePE(nn.Module):
+    def __init__(self, embed_dim=256):
+        super().__init__()
+        self.ape = nn.parameter.Parameter(torch.zeros((embed_dim, 25, 25)), requires_grad=True)
+        nn.init.trunc_normal_(self.ape)
+    
+    def forward(self, size):
+        """
+        size: (H, W)
+        return: C, H, W
+        """
+        ape = F.interpolate(self.ape.unsqueeze(0), size=size, mode="bilinear")
+        return ape[0]  ## C, H, W
 
 @META_ARCH_REGISTRY.register()
-class SRFovealSADeep(nn.Module):
+class SRDynamic(nn.Module):
     """
-    SRFoveal: backbone+neck+fovealq+gazeshift (foveal w/o sa)
+    SRDynamic: backbone+frcpn+FovealDynamic+gazeshift
+        deep + ape + dynamic
     """
     def __init__(self, cfg):
         super().__init__()
         self.cfg = cfg
         self.backbone = build_backbone(cfg)
         self.neck = FrcPN(cfg)
-        self.pe_layer = PositionEmbeddingRandom(cfg.MODEL.COMMON.EMBED_DIM//2)
+        self.pe_layer = LearnablePE(cfg.MODEL.COMMON.EMBED_DIM)
         # self.bbox_decoder = BBoxDecoder(cfg)
         # self.mask_decoder = MaskDecoder(cfg)
-        self.fovealqsa = FovealQSADeep(cfg)
+        self.fovealqsa = FovealDynamic(cfg)
         self.gaze_shift = GazeShift(cfg)
 
         self.register_buffer("pixel_mean", torch.tensor(cfg.MODEL.PIXEL_MEAN).reshape(1, -1, 1, 1), False)
@@ -49,13 +64,14 @@ class SRFovealSADeep(nn.Module):
             for k in zs
         )
 
-        q, qpe, predictions = self.fovealqsa(
+        ## return q, qpe, out, aux_predictions
+        q, qpe, out, aux_predictions = self.fovealqsa(
             feats=zs,
             feats_pe=zs_pe
         )
-        pred_masks = predictions[-1]["masks"]
-        pred_bboxes = predictions[-1]["bboxes"].sigmoid()  ## B, nq, 4 [xyhw] in [0,1]
-        pred_objs = predictions[-1]["fg"]
+        pred_masks = out["masks"]  ## B, nq, h, w
+        pred_bboxes = out["bboxes"].sigmoid()  ## B, nq, 4 [xyhw] in [0,1]
+        pred_objs = out["scores"]  ## B, nq, 1
 
         gaze_shift_key = self.cfg.MODEL.MODULES.GAZE_SHIFT.KEY
 
@@ -76,25 +92,44 @@ class SRFovealSADeep(nn.Module):
             q_corresponse[bi, qi, 0] = (ti + 1).to(q_corresponse.dtype)  ## 1 to n_max
 
             obj_pos_weight = torch.tensor(self.cfg.LOSS.WEIGHTS.OBJ_POS, device=self.device)
+            obj_neg_weight = torch.tensor(self.cfg.LOSS.WEIGHTS.OBJ_NEG, device=self.device)
 
             mask_loss = batch_mask_loss(pred_masks[bi, qi], q_masks[bi, ti]).mean()
             bbox_loss = batch_bbox_loss(xyhw2xyxy(pred_bboxes[bi, qi]), q_boxes[bi, ti]).mean()
-            obj_loss = F.binary_cross_entropy_with_logits(pred_objs, q_corresponse.gt(.5).float(), pos_weight=obj_pos_weight)
+            obj_loss = F.binary_cross_entropy_with_logits(
+                pred_objs, 
+                q_corresponse.gt(.5).float(), 
+                pos_weight=obj_pos_weight
+            ) * obj_neg_weight
 
-            aux_mask_loss = sum([
-                batch_mask_loss(
-                    F.interpolate(predictions[i]["masks"], size=gt_size, mode="bilinear")[bi, qi], 
-                    q_masks[bi, ti]
-                ).mean()
-                for i in range(len(predictions)-1)  ## except for last one
-            ])
-            aux_bbox_loss = sum([
-                batch_bbox_loss(
-                    xyhw2xyxy(torch.sigmoid(predictions[i]["bboxes"][bi, qi])),
-                    q_boxes[bi, ti]
-                ).mean()
-                for i in range(len(predictions)-1)  ## except for last one
-            ])
+            aux_mask_loss = torch.zeros_like(mask_loss)
+            aux_bbox_loss = torch.zeros_like(bbox_loss)
+            aux_obj_loss  = torch.zeros_like(obj_loss)
+            if True: ## aux loss
+                n_aux = len(aux_predictions)
+                if self.cfg.LOSS.WEIGHTS.AUX=="linear":
+                    aux_weights = torch.linspace(0.0, 1.0, n_aux, device=self.device) * self.cfg.LOSS.WEIGHTS.AUX_WEIGHT
+                else:
+                    aux_weights = torch.ones(n_aux, device=self.device) * self.cfg.LOSS.WEIGHTS.AUX_WEIGHT
+                for i in range(n_aux):
+                    aux_out = aux_predictions[i]
+                    aux_w = aux_weights[i]
+
+                    aux_masks = F.interpolate(aux_out["masks"], size=gt_size, mode="bilinear")
+                    aux_scores = aux_out["scores"]
+                    aux_bboxes = aux_out["bboxes"].sigmoid()
+
+                    abi, aqi, ati = hungarianMatcher(preds={"masks": aux_masks, "scores": aux_scores}, targets=masks)
+                    aux_corr = torch.zeros_like(aux_scores)  ## B, nq, 1
+                    aux_corr[abi, aqi, 0] = (ati + 1).to(aux_corr.dtype)  ## B, nq, 1
+
+                    aux_mask_loss += batch_mask_loss(aux_masks[abi, aqi], q_masks[abi, ati]).mean() * aux_w
+                    aux_bbox_loss += batch_bbox_loss(xyhw2xyxy(aux_bboxes[abi, aqi]), q_boxes[abi, ati]).mean() * aux_w
+                    aux_obj_loss  += F.binary_cross_entropy_with_logits(
+                        aux_scores, 
+                        aux_corr.gt(.5).float(), 
+                        pos_weight=obj_pos_weight
+                    ) * obj_neg_weight * aux_w
 
             sal_loss = torch.zeros_like(obj_loss).mean()  ## initialize as zero
             for i in range(n_max+1):
@@ -132,8 +167,9 @@ class SRFovealSADeep(nn.Module):
                 "obj_loss": obj_loss * self.cfg.LOSS.WEIGHTS.CLS_COST,
                 "bbox_loss": bbox_loss * self.cfg.LOSS.WEIGHTS.BBOX_COST,
                 "sal_loss": sal_loss * self.cfg.LOSS.WEIGHTS.SAL_COST,
-                "aux_mask_loss": aux_mask_loss * 0.4,
-                "aux_bbox_loss": aux_bbox_loss * 0.4
+                "aux_mask_loss": aux_mask_loss,
+                "aux_bbox_loss": aux_bbox_loss,
+                "aux_obj_loss": aux_obj_loss,
             }
             ## end training
         else:

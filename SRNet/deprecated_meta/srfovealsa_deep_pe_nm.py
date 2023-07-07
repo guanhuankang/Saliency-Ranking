@@ -5,11 +5,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 from detectron2.modeling import META_ARCH_REGISTRY, build_backbone
 
-from .neck import FrcPN, FPN
-from .modules import GazeShift, FovealQSADeep
-from .component import PositionEmbeddingRandom
-from .utils import calc_iou, debugDump, pad1d, mask2Boxes, xyhw2xyxy, xyxy2xyhw
-from .loss import hungarianMatcher, batch_mask_loss, batch_bbox_loss
+from SRNet.neck import FrcPN, FPN
+from SRNet.modules import GazeShift, FovealQSADeep
+from SRNet.component import PositionEmbeddingRandom
+from SRNet.utils import calc_iou, debugDump, pad1d, mask2Boxes, xyhw2xyxy, xyxy2xyhw
+from SRNet.loss import hungarianMatcher, batch_mask_loss, batch_bbox_loss
 
 class LearnablePE(nn.Module):
     def __init__(self, embed_dim=256):
@@ -26,7 +26,7 @@ class LearnablePE(nn.Module):
         return ape[0]  ## C, H, W
 
 @META_ARCH_REGISTRY.register()
-class SRFovealSADeepPE(nn.Module):
+class SRFovealSADeepPENM(nn.Module):
     """
     SRFoveal: backbone+neck+fovealq+gazeshift (foveal w/o sa)
     """
@@ -89,10 +89,15 @@ class SRFovealSADeepPE(nn.Module):
             q_corresponse = torch.zeros_like(pred_objs)  ## B, nq, 1
             q_corresponse[bi, qi, 0] = (ti + 1).to(q_corresponse.dtype)  ## 1 to n_max
 
-            obj_pos_weight = torch.tensor(self.cfg.LOSS.WEIGHTS.OBJ_POS, device=self.device)
+            
+            num_masks = torch.as_tensor([len(bi)], device=self.device)
+            if self.cfg.SOLVER.NUM_GPUS > 1:
+                torch.distributed.all_reduce(num_masks)
+            num_masks = max(num_masks.item(), 1.0)
 
-            mask_loss = batch_mask_loss(pred_masks[bi, qi], q_masks[bi, ti]).mean()
-            bbox_loss = batch_bbox_loss(xyhw2xyxy(pred_bboxes[bi, qi]), q_boxes[bi, ti]).mean()
+            obj_pos_weight = torch.tensor(self.cfg.LOSS.WEIGHTS.OBJ_POS, device=self.device)
+            mask_loss = batch_mask_loss(pred_masks[bi, qi], q_masks[bi, ti]).sum() / num_masks
+            bbox_loss = batch_bbox_loss(xyhw2xyxy(pred_bboxes[bi, qi]), q_boxes[bi, ti]).sum() / num_masks
             obj_loss = F.binary_cross_entropy_with_logits(pred_objs, q_corresponse.gt(.5).float(), pos_weight=obj_pos_weight)
 
             aux_mask_loss = sum([

@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from detectron2.config import configurable
 from ..component import Attention, MLPBlock, init_weights_
-
+from .registry import SALIENCY_INSTANCE_SEG
 
 class AcuityStep(nn.Module):
     def __init__(self, embed_dim=256, num_heads=8, hidden_dim=1024, dropout_attn=0.0, dropout_ffn=0.0):
@@ -107,10 +107,12 @@ class Head(nn.Module):
         fg = self.fg_head(q)  ## B, nq, 1
         return {
             "masks": masks,
+            "scores": fg,
             "bboxes": bboxes,
-            "fg": fg
+            "attn_mask": None
         }
 
+@SALIENCY_INSTANCE_SEG.register
 class FovealQSADeep(nn.Module):
     @configurable
     def __init__(self, num_queries=100, embed_dim=256, num_heads=8, hidden_dim=1024, dropout_attn=0.0, dropout_ffn=0.0, num_blocks=2, key_features=["res5","res4","res3"]):
@@ -170,4 +172,7 @@ class FovealQSADeep(nn.Module):
         assert len(q_lst) == len(self.heads)
         ## list of dict: masks/bboxes/fg in logits
         predictions = [head(q=q, f=low_z) for head in self.heads]
-        return q, qpe, predictions
+
+        out = predictions[-1]
+        auxs = predictions[0:-1]
+        return q, qpe, out, auxs
