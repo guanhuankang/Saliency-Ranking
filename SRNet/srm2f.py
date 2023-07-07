@@ -87,20 +87,24 @@ class SRM2F(nn.Module):
             bbox_loss = batch_bbox_loss(xyhw2xyxy(pred_bboxes[bi, qi]), q_boxes[bi, ti]).mean()
             obj_loss = F.binary_cross_entropy_with_logits(pred_objs, q_corresponse.gt(.5).float(), pos_weight=obj_pos_weight)
 
-            aux_mask_loss = sum([
-                batch_mask_loss(
-                    F.interpolate(aux["masks"], size=gt_size, mode="bilinear")[bi, qi],
-                    q_masks[bi, ti]
-                ).mean()
-                for aux in auxs
-            ])
-            aux_bbox_loss = sum([
-                batch_bbox_loss(
-                    xyhw2xyxy(torch.sigmoid(aux["bboxes"][bi, qi])),
-                    q_boxes[bi, ti]
-                ).mean()
-                for aux in auxs
-            ])
+            if self.cfg.LOSS.WEIGHTS.AUX=="disable":
+                aux_mask_loss = torch.zeros_like(obj_loss)
+                aux_bbox_loss = torch.zeros_like(obj_loss)
+            else:
+                aux_mask_loss = sum([
+                    batch_mask_loss(
+                        F.interpolate(aux["masks"], size=gt_size, mode="bilinear")[bi, qi],
+                        q_masks[bi, ti]
+                    ).mean()
+                    for aux in auxs
+                ])
+                aux_bbox_loss = sum([
+                    batch_bbox_loss(
+                        xyhw2xyxy(torch.sigmoid(aux["bboxes"][bi, qi])),
+                        q_boxes[bi, ti]
+                    ).mean()
+                    for aux in auxs
+                ])
 
             sal_loss = torch.zeros_like(obj_loss).mean()  ## initialize as zero
             for i in range(n_max+1):

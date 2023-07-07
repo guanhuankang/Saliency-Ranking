@@ -67,6 +67,7 @@ LOSS:
         OBJ_POS: 10.0
         OBJ_NEG: 0.1
         AUX_WEIGHT: 0.4
+        AUX: "disable"
 DATASETS:
     TRAIN: ("assr_train",)
     TEST: ("assr_test",)

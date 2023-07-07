@@ -1,2 +1,2 @@
 nvidia-smi
-python train_net.py --config-file configs/swinb_srnet.yaml MODEL.META_ARCHITECTURE "SRDynamic" SOLVER.IMS_PER_GPU 1 SOLVER.STEPS "(50,80)" SOLVER.MAX_ITER 100 OUTPUT_DIR output/htgc3t
+python train_net.py --config-file configs/base_swinb.yaml SOLVER.IMS_PER_GPU 1 SOLVER.STEPS "(50,80)" SOLVER.MAX_ITER 100 OUTPUT_DIR output/htgc3t SOLVER.BASE_LR 0.00001 DATALOADER.NUM_WORKERS 1
