@@ -48,6 +48,7 @@ class FFNLayer(nn.Module):
         for p in self.parameters():
             if p.dim() > 1:
                 nn.init.xavier_uniform_(p)
+
     def forward(self, x):
         o = self.linear2(self.dropout(self.act(self.linear1(x))))
         x = x + self.dropout(o)
@@ -68,6 +69,43 @@ class MLP(nn.Module):
         for i, layer in enumerate(self.layers):
             x = F.relu(layer(x)) if i < (self.num_layers - 1) else layer(x)
         return x
+
+class Head(nn.Module):
+    def __init__(self, embed_dim=256, num_heads=8):
+        super().__init__()
+        self.decoder_norm = nn.LayerNorm(embed_dim)
+        self.score_head = nn.Linear(embed_dim, 1)
+        self.mask_embed = MLP(embed_dim, embed_dim, embed_dim, 3)
+        self.bbox_head = MLP(embed_dim, embed_dim, 4, 3)
+        self.num_heads = num_heads
+        self._reset_parameters()
+
+    def _reset_parameters(self):
+        for p in self.parameters():
+            if p.dim() > 1:
+                nn.init.xavier_uniform_(p)
+                
+    def forward(self, q, mask_feature, attn_size):
+        """
+        q: B, nq, C
+        mask-feature: B, C, H, W
+        attn_size: (int, int)
+        """
+        q = self.decoder_norm(q)
+        mask_embed = self.mask_embed(q)
+        scores = self.score_head(q)  ## B, nq, 1
+        masks = torch.einsum("bqc,bchw->bqhw", mask_embed, mask_feature)  ## B, nq, H, W
+        bboxes = self.bbox_head(q)  ## B, nq, 4
+
+        attn_mask = F.interpolate(masks.detach(), size=attn_size, mode="bilinear", align_corners=False)
+        attn_mask = attn_mask.sigmoid().flatten(2).unsqueeze(1).expand(-1, self.num_heads, -1, -1).flatten(0, 1).lt(0.5)
+        attn_mask = attn_mask.bool().detach()  ## detach | [0,1] | BxHead,nq,hw
+        return {
+            "masks": masks,  ## B, nq, H, W
+            "scores": scores,  ## B, nq, 1
+            "bboxes": bboxes,  ## B, nq, 4
+            "attn_mask": attn_mask  ## BxHead, nq, HW
+        }
 
 @SALIENCY_INSTANCE_SEG.register()
 class Mask2Former(nn.Module):
@@ -94,10 +132,7 @@ class Mask2Former(nn.Module):
         self.num_blocks = num_blocks
         self.num_heads = num_heads
 
-        self.decoder_norm = nn.LayerNorm(embed_dim)
-        self.score_head = nn.Linear(embed_dim, 1)
-        self.mask_embed = MLP(embed_dim, embed_dim, embed_dim, 3)
-        self.bbox_head = MLP(embed_dim, embed_dim, 4, 3)
+        self.head = Head(embed_dim=embed_dim, num_heads=num_heads)
 
     @classmethod
     def from_config(cls, cfg):
@@ -137,7 +172,7 @@ class Mask2Former(nn.Module):
         q = self.q.expand(B, -1, -1)
         qpe = self.qpe.expand(B, -1, -1)
 
-        predictions = [self.forward_prediction_head(q=q, mask_feature=mask_feature, attn_size=sizes[0])]
+        predictions = [self.head(q=q, mask_feature=mask_feature, attn_size=sizes[0])]
         for idx in range(self.num_blocks):
             key = self.key_features[int(idx % n_keys)]
             attn_mask = predictions[-1]["attn_mask"]
@@ -163,30 +198,8 @@ class Mask2Former(nn.Module):
             # FFN
             q = self.ffn_layers[idx](q)
 
-            predictions.append(self.forward_prediction_head(q=q, mask_feature=mask_feature, attn_size=sizes[(idx+1) % n_keys]))
+            predictions.append(self.head(q=q, mask_feature=mask_feature, attn_size=sizes[(idx+1) % n_keys]))
 
         out = predictions[-1]
         aux = predictions[0:-1]
         return q, qpe, out, aux
-
-    def forward_prediction_head(self, q, mask_feature, attn_size):
-        """
-        q: B, nq, C
-        mask-feature: B, C, H, W
-        attn_size: (int, int)
-        """
-        q = self.decoder_norm(q)
-        mask_embed = self.mask_embed(q)
-        scores = self.score_head(q)  ## B, nq, 1
-        masks = torch.einsum("bqc,bchw->bqhw", mask_embed, mask_feature)  ## B, nq, H, W
-        bboxes = self.bbox_head(q)  ## B, nq, 4
-
-        attn_mask = F.interpolate(masks.detach(), size=attn_size, mode="bilinear", align_corners=False)
-        attn_mask = attn_mask.sigmoid().flatten(2).unsqueeze(1).expand(-1, self.num_heads, -1, -1).flatten(0, 1).lt(0.5)
-        attn_mask = attn_mask.bool().detach()  ## detach | [0,1] | BxHead,nq,hw
-        return {
-            "masks": masks,  ## B, nq, H, W
-            "scores": scores,  ## B, nq, 1
-            "bboxes": bboxes,  ## B, nq, 4
-            "attn_mask": attn_mask  ## BxHead, nq, HW
-        }

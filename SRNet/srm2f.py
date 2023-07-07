@@ -138,8 +138,8 @@ class SRM2F(nn.Module):
                 "obj_loss": obj_loss * self.cfg.LOSS.WEIGHTS.CLS_COST,
                 "bbox_loss": bbox_loss * self.cfg.LOSS.WEIGHTS.BBOX_COST,
                 "sal_loss": sal_loss * self.cfg.LOSS.WEIGHTS.SAL_COST,
-                "aux_mask_loss": aux_mask_loss * 0.4,
-                "aux_bbox_loss": aux_bbox_loss * 0.4
+                "aux_mask_loss": aux_mask_loss * self.cfg.LOSS.WEIGHTS.AUX_WEIGHT,
+                "aux_bbox_loss": aux_bbox_loss * self.cfg.LOSS.WEIGHTS.AUX_WEIGHT
             }
             ## end training
         else:

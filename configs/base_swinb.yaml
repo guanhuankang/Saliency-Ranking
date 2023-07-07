@@ -63,10 +63,9 @@ LOSS:
         CLS_COST: 1.0
         MASK_COST: 1.0
         BBOX_COST: 1.0
-        SAL_COST: 5.0
-        OBJ_POS: 30.0
-        OBJ_NEG: 1.0
-        AUX: "linear"
+        SAL_COST: 1.0
+        OBJ_POS: 10.0
+        OBJ_NEG: 0.1
         AUX_WEIGHT: 0.4
 DATASETS:
     TRAIN: ("assr_train",)
