@@ -2,8 +2,8 @@ MODEL:
     META_ARCHITECTURE: "SRNet"
     PIXEL_MEAN: [123.675, 116.280, 103.530]
     PIXEL_STD: [58.395, 57.120, 57.375]
-    WEIGHTS: "ckp_of_R50_from_torchvision_pretrained"
-    PE: "SINE"
+    WEIGHTS: ""
+    PE: "APE"
     BACKBONE:
         NAME: "ResNeXt50"
         NUM_FEATURES: (256,512,1024,2048)

@@ -87,7 +87,7 @@ class AcuityBlock(nn.Module):
             q = layer(q, qpe, high_z, high_zpe, low_z, low_zpe)
         return q
 
-@SALIENCY_INSTANCE_SEG.register
+@SALIENCY_INSTANCE_SEG.register()
 class FovealQSA(nn.Module):
     @configurable
     def __init__(self, num_queries=100, embed_dim=256, num_heads=8, hidden_dim=1024, dropout_attn=0.0, dropout_ffn=0.0, num_blocks=2, key_features=["res5","res4","res3"]):
@@ -117,8 +117,8 @@ class FovealQSA(nn.Module):
             "dropout_attn": cfg.MODEL.COMMON.DROPOUT_ATTN,
             "hidden_dim":   cfg.MODEL.COMMON.HIDDEN_DIM,
             "dropout_ffn":  cfg.MODEL.COMMON.DROPOUT_FFN,
-            "num_blocks":   cfg.MODEL.MODULES.FOVEALQ.NUM_BLOCKS,
-            "key_features":   cfg.MODEL.MODULES.FOVEALQ.KEY_FEATURES
+            "num_blocks":   cfg.MODEL.SIS_HEAD.NUM_BLOCKS,
+            "key_features":   cfg.MODEL.SIS_HEAD.KEY_FEATURES
         }
 
     def forward(self, feats, feats_pe):

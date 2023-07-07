@@ -143,7 +143,8 @@ def setup(args):
     cfg.DATASETS.ROOT = root
     print("ROOT:", root)
     
-    cfg.MODEL.WEIGHTS = os.path.join(root, cfg.MODEL.WEIGHTS)
+    if cfg.MODEL.WEIGHTS!="":
+        cfg.MODEL.WEIGHTS = os.path.join(root, cfg.MODEL.WEIGHTS)
 
     cfg.merge_from_list(args.opts)
 
