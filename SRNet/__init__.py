@@ -7,5 +7,5 @@ from .srfovealparallel import SRParallel
 from .srparallel_sis import SRParallelSIS
 from .srparallelsa import SRParallelSA
 from .debug import Debug
-
+from .srm2f import SRM2F
 from .srdynamic import SRDynamic

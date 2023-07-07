@@ -1,5 +1,5 @@
 MODEL:
-    META_ARCHITECTURE: "SRFovealSA"
+    META_ARCHITECTURE: "SRM2F"
     PIXEL_MEAN: [123.675, 116.280, 103.530]
     PIXEL_STD: [58.395, 57.120, 57.375]
     BACKBONE:
@@ -41,6 +41,9 @@ MODEL:
         FOVEALDYNAMIC:
             MERGE_NAME: "FovealStep"
             NUM_BLOCKS: 6
+            KEY_FEATURES: ["res5", "res4", "res3"]
+        MASK2FORMER:
+            NUM_BLOCKS: 9
             KEY_FEATURES: ["res5", "res4", "res3"]
     COMMON:
         EMBED_DIM: 256
