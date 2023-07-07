@@ -9,3 +9,4 @@ from .peripheral_wope import PeripheralWOPE
 from .peripheral import Peripheral
 from .mask2former import Mask2Former
 from .foveal_dynamic import FovealDynamic
+from .registry import build_gaze_shift_head, build_sis_head

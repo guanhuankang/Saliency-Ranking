@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from detectron2.config import configurable
 from SRNet.component import init_weights_, LayerNorm2D
+from .registry import NECK_HEAD
 
 class FPNLayer(nn.Module):
     def __init__(self, dim=256):
@@ -15,6 +16,7 @@ class FPNLayer(nn.Module):
         high_feat = F.interpolate(high_feat, size=low_feat.shape[2::], mode="bilinear")
         return self.conv(self.scale(high_feat) + low_feat)
 
+@NECK_HEAD.register()
 class FPN(nn.Module):
     @configurable
     def __init__(self, dim=256, feat_dims=(128,256,512,1024), feat_keys=["res2","res3","res4","res5"]):

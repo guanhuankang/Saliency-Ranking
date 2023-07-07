@@ -5,8 +5,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from detectron2.modeling import META_ARCH_REGISTRY, build_backbone
 
-from .neck import FrcPN, FPN
-from .modules import GazeShift, Mask2Former
+from .neck import build_neck_head
+from .modules import build_gaze_shift_head, build_sis_head
 from .component import PositionEmbeddingSine
 from .utils import calc_iou, debugDump, pad1d, mask2Boxes, xyhw2xyxy, xyxy2xyhw
 from .loss import hungarianMatcher, batch_mask_loss, batch_bbox_loss
@@ -30,11 +30,11 @@ class SRM2F(nn.Module):
     def __init__(self, cfg):
         super().__init__()
         self.cfg = cfg
-        self.backbone = build_backbone(cfg)
-        self.neck = FrcPN(cfg)
         self.pe_layer = PositionEmbeddingSine(cfg.MODEL.COMMON.EMBED_DIM//2, normalize=True)
-        self.instance_seg = Mask2Former(cfg)
-        self.gaze_shift = GazeShift(cfg)
+        self.backbone = build_backbone(cfg)
+        self.neck = build_neck_head(cfg)
+        self.instance_seg = build_sis_head(cfg)
+        self.gaze_shift = build_gaze_shift_head(cfg)
 
         self.register_buffer("pixel_mean", torch.tensor(cfg.MODEL.PIXEL_MEAN).reshape(1, -1, 1, 1), False)
         self.register_buffer("pixel_std", torch.tensor(cfg.MODEL.PIXEL_STD).reshape(1, 3, 1, 1), False)

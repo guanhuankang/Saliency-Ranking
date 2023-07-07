@@ -4,7 +4,7 @@ import torchvision
 from detectron2.config import configurable
 
 from ..component import Attention, MLPBlock, init_weights_
-
+from .registry import GAZE_SHIFT_HEAD
 
 class GazeShiftLayer(nn.Module):
     def __init__(self, embed_dim=256, num_heads=8, hidden_dim=1024, dropout_attn=0.0, dropout_ffn=0.0):
@@ -30,6 +30,7 @@ class GazeShiftLayer(nn.Module):
         q = self.norm3(q + self.dropout3(self.mlp(q)))
         return q
 
+@GAZE_SHIFT_HEAD.register()
 class GazeShift(nn.Module):
     @configurable
     def __init__(self, alpha=1.0, sigma=10.0, kernel_size=5, embed_dim=256, num_heads=8, hidden_dim=1024, dropout_attn=0.0, dropout_ffn=0.0, num_blocks=2):

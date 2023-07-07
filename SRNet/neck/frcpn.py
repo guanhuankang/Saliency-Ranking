@@ -5,6 +5,8 @@ import torch.nn.functional as F
 from detectron2.config import configurable
 from SRNet.component import init_weights_, LayerNorm2D
 
+from .registry import NECK_HEAD
+
 class UnFold(nn.Module):
     def __init__(self, kernel_size, dilation=1, padding=0, stride=1):
         super().__init__()
@@ -58,6 +60,7 @@ class FRC(nn.Module):
         x = torch.sum(x * mask, dim=2) / (torch.sum(mask, dim=2) + 1e-6)
         return self.conv2(x + low_feat)  ## B,d_out,H,W
 
+@NECK_HEAD.register()
 class FrcPN(nn.Module):
     '''
         Cross-Scale Feature Re-Coordinate Pyramid Network (CS-FrcPN)

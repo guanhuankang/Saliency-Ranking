@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from detectron2.config import configurable
 # from ..component import PositionEmbeddingSine
+from .registry import SALIENCY_INSTANCE_SEG
 
 class MultiHeadAttention(nn.Module):
     def __init__(self, embed_dim=256, num_heads=8, dropout_attn=0.0):
@@ -68,6 +69,7 @@ class MLP(nn.Module):
             x = F.relu(layer(x)) if i < (self.num_layers - 1) else layer(x)
         return x
 
+@SALIENCY_INSTANCE_SEG.register()
 class Mask2Former(nn.Module):
     @configurable
     def __init__(self, num_queries=100, embed_dim=256, num_heads=8, hidden_dim=1024, dropout_attn=0.0, dropout_ffn=0.0, num_blocks=2, key_features=["res5","res4","res3"]):

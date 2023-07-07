@@ -27,9 +27,15 @@ def add_custom_config(cfg, num_gpus=1):
     cfg.MODEL.SWIN.USE_CHECKPOINT = False
 
     cfg.MODEL.NECK = CN()
+    cfg.MODEL.NECK.NAME = "FPN"
     cfg.MODEL.NECK.DIM = 256
     cfg.MODEL.NECK.NUM_FEATURES = [128, 256, 512, 1024]
     cfg.MODEL.NECK.FEATURE_KEYS = ["res2", "res3", "res4", "res5"]
+
+    cfg.MODEL.SIS_HEAD = CN()
+    cfg.MODEL.SIS_HEAD.NAME = ""
+    cfg.MODEL.GAZE_SHIFT_HEAD = CN()
+    cfg.MODEL.GAZE_SHIFT_HEAD.NAME = ""
 
     cfg.MODEL.MODULES = CN()
     cfg.MODEL.MODULES.BBOX_DECODER = CN()
