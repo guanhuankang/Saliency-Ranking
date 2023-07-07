@@ -22,9 +22,9 @@ MODEL:
         NUM_FEATURES: (256,512,1024)
         FEATURE_KEYS: ["res3", "res4", "res5"]
     SIS_HEAD:
-        NAME: "MASK2FORMER"
+        NAME: "Mask2Former"
     GAZE_SHIFT_HEAD:
-        NAME: "GAZE_SHIFT"
+        NAME: "GazeShift"
     MODULES:
         BBOX_DECODER:
             NUM_BLOCKS: 4
