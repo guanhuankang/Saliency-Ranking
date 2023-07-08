@@ -10,4 +10,5 @@ LOSS:
     OBJ_NEG: 0.1
     AUX_WEIGHT: 0.0
     AUX: "disable"
-    
+SOLVER:
+    WEIGHT_DECAY: 0.05
