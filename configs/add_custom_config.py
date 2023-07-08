@@ -25,6 +25,10 @@ def add_custom_config(cfg, num_gpus=1):
     cfg.MODEL.GAZE_SHIFT_HEAD.KERNEL_SIZE = 5
     cfg.MODEL.GAZE_SHIFT_HEAD.ALPHA = 1.0
     cfg.MODEL.GAZE_SHIFT_HEAD.KEY = "res5"
+    
+    cfg.MODEL.MODULES = CN()
+    cfg.MODEL.MODULES.MULTIQ = CN()
+    cfg.MODEL.MODULES.MULTIQ.GRID_SIZES = [(2,2), (3,3), (4,4)]
 
     cfg.MODEL.COMMON = CN()
     cfg.MODEL.COMMON.EMBED_DIM = 256

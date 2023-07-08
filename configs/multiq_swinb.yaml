@@ -1,0 +1,16 @@
+_BASE_: swinB_384_22k.yaml
+MODEL:
+    PE: "APE"
+    SIS_HEAD:
+        NAME: "MultiQ"
+        NUM_BLOCKS: 9
+    MODULES:
+        MULTIQ:
+            GRID_SIZES: [[2,2], [3,3], [4,4]]
+LOSS:
+    OBJ_POS: 30.0
+    OBJ_NEG: 1.0
+    AUX_WEIGHT: 0.0
+    AUX: "disable"
+SOLVER:
+    WEIGHT_DECAY: 0.0001
