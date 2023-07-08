@@ -14,6 +14,7 @@ MODEL:
         NAME: "FovealQSADeep"
         NUM_BLOCKS: 6
         KEY_FEATURES: ["res5", "res4", "res3"]
+        MASK_KEY: "res2"
     GAZE_SHIFT_HEAD:
         NAME: "GazeShift"
         NUM_BLOCKS: 3

@@ -15,7 +15,8 @@ def add_custom_config(cfg, num_gpus=1):
     cfg.MODEL.SIS_HEAD = CN()
     cfg.MODEL.SIS_HEAD.NAME = "Mask2Former"
     cfg.MODEL.SIS_HEAD.NUM_BLOCKS = 9
-    cfg.MODEL.SIS_HEAD.KEY_FEATURES = ["res5", "res4", "res3", "res2"]
+    cfg.MODEL.SIS_HEAD.KEY_FEATURES = ["res5", "res4", "res3"]
+    cfg.MODEL.SIS_HEAD.MASK_KEY = "res2"
 
     cfg.MODEL.GAZE_SHIFT_HEAD = CN()
     cfg.MODEL.GAZE_SHIFT_HEAD.NAME = "GazeShift"

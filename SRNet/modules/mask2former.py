@@ -110,7 +110,7 @@ class Head(nn.Module):
 @SALIENCY_INSTANCE_SEG.register()
 class Mask2Former(nn.Module):
     @configurable
-    def __init__(self, num_queries=100, embed_dim=256, num_heads=8, hidden_dim=1024, dropout_attn=0.0, dropout_ffn=0.0, num_blocks=2, key_features=["res5","res4","res3"]):
+    def __init__(self, num_queries=100, embed_dim=256, num_heads=8, hidden_dim=1024, dropout_attn=0.0, dropout_ffn=0.0, num_blocks=3, key_features=["res5","res4","res3"], mask_key="res2"):
         super().__init__()
         self.q = nn.Parameter(torch.zeros((1, num_queries, embed_dim)))
         self.qpe = nn.Parameter(torch.randn((1, num_queries, embed_dim)))
@@ -129,6 +129,7 @@ class Mask2Former(nn.Module):
 
         self.level_embed = nn.Embedding(len(key_features), embedding_dim=embed_dim)
         self.key_features = key_features
+        self.mask_key = mask_key
         self.num_blocks = num_blocks
         self.num_heads = num_heads
 
@@ -144,7 +145,8 @@ class Mask2Former(nn.Module):
             "hidden_dim":   cfg.MODEL.COMMON.HIDDEN_DIM,
             "dropout_ffn":  cfg.MODEL.COMMON.DROPOUT_FFN,
             "num_blocks":   cfg.MODEL.SIS_HEAD.NUM_BLOCKS,
-            "key_features":   cfg.MODEL.SIS_HEAD.KEY_FEATURES
+            "key_features":   cfg.MODEL.SIS_HEAD.KEY_FEATURES,
+            "mask_key":       cfg.MODEL.SIS_HEAD.MASK_KEY
         }
 
     def forward(self, feats, feats_pe):
@@ -162,8 +164,7 @@ class Mask2Former(nn.Module):
                 "bboxes": B, nq, 4 [logit]
                 "attn_mask": BxHead, nq, HW [0,1 and detached]
         """
-        mask_key = self.key_features[-1]
-        mask_feature = feats[mask_key]
+        mask_feature = feats[self.mask_key]
 
         B, C, H, W = mask_feature.shape
         n_keys = len(self.key_features)

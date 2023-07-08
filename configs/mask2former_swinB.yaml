@@ -4,7 +4,6 @@ MODEL:
     SIS_HEAD:
         NAME: "Mask2Former"
         NUM_BLOCKS: 9
-        KEY_FEATURES: ["res5", "res4", "res3", "res2"]
 LOSS:
     OBJ_POS: 10.0
     OBJ_NEG: 0.1
