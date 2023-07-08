@@ -3,7 +3,7 @@ MODEL:
     PE: "APE"
     SIS_HEAD:
         NAME: "MultiQ"
-        NUM_BLOCKS: 9
+        NUM_BLOCKS: 6
     MODULES:
         MULTIQ:
             GRID_SIZES: [[2,2], [3,3], [4,4]]
