@@ -129,7 +129,7 @@ class ROISample(nn.Module):
         _, nq, _ = boxes.shape
 
         b_index = torch.arange(B, device=boxes.device).reshape(B, 1, 1).expand(B, nq, 1)
-        boxes = torch.clamp(xyhw2xyxy(boxes), min=0.0, max=1.0)  ## B, nq, 4
+        boxes = torch.clamp(xyhw2xyxy(boxes.flatten(0, 1)).unflatten(0, (B, nq)), min=0.0, max=1.0)  ## B, nq, 4
         boxes = boxes * torch.tensor([[[W, H, W, H]]], device=boxes.device)  ## B, nq, 4
         boxes = torch.cat([b_index, boxes], dim=-1).flatten(0, 1)  ## Bxnq, 5
 
