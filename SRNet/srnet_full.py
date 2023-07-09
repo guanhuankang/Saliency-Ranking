@@ -28,7 +28,7 @@ class LearnablePE(nn.Module):
 
 
 @META_ARCH_REGISTRY.register()
-class SRNet(nn.Module):
+class SRNetFull(nn.Module):
     def __init__(self, cfg):
         super().__init__()
         self.backbone = build_backbone(cfg)
@@ -112,11 +112,12 @@ class SRNet(nn.Module):
                 ])
 
             sal_loss = torch.zeros_like(obj_loss).mean()  ## initialize as zero
+            sal_aux_loss = torch.zeros_like(obj_loss).mean()  ## initialize as zero
             for i in range(n_max + 1):
                 # q_vis_gt = q_corresponse.gt(i).float() * torch.rand_like(q_corresponse).le(0.15).float()
                 q_vis = q_corresponse * q_corresponse.le(i).float()  # + q_vis_gt
-                q_ans = q_corresponse.eq(i + 1).float()
-                sal, _ = self.gaze_shift(
+                q_ans = q_corresponse.eq(i + 1).float()  ## B, nq, 1
+                sal, sal_auxs = self.gaze_shift(
                     q=q,
                     z=zs[gaze_shift_key].flatten(2).transpose(-1, -2),
                     qpe=qpe,
@@ -125,7 +126,22 @@ class SRNet(nn.Module):
                     bbox=pred_bboxes,  ## xyhw
                     size=tuple(zs[gaze_shift_key].shape[2::])
                 )
-                sal_loss += F.binary_cross_entropy_with_logits(sal, q_ans)
+
+                if self.cfg.LOSS.SAL_TERMINATE:
+                    q_mask = torch.ones_like(q_ans)
+                else:
+                    q_mask = q_ans.sum(dim=1, keepdim=True).gt(.5).float()  ## B, 1, 1
+
+                sal_loss += torch.sum(
+                        F.binary_cross_entropy_with_logits(sal, q_ans, reduction="none") * q_mask
+                    ) / (torch.sum(q_mask) + 1e-6)
+
+                aux_pass = self.cfg.LOSS.AUX == "disable" or len(sal_auxs) <= 0
+                if not aux_pass:
+                    for s_a in sal_auxs:
+                        sal_aux_loss += torch.sum(
+                            F.binary_cross_entropy_with_logits(s_a, q_ans, reduction="none") * q_mask
+                        ) / (torch.sum(q_mask) + 1e-6)
 
             ## debugDump
             if np.random.rand() < 0.1:
@@ -148,7 +164,8 @@ class SRNet(nn.Module):
                 "bbox_loss": bbox_loss * self.cfg.LOSS.BBOX_COST,
                 "sal_loss": sal_loss * self.cfg.LOSS.SAL_COST,
                 "aux_mask_loss": aux_mask_loss * self.cfg.LOSS.AUX_WEIGHT,
-                "aux_bbox_loss": aux_bbox_loss * self.cfg.LOSS.AUX_WEIGHT
+                "aux_bbox_loss": aux_bbox_loss * self.cfg.LOSS.AUX_WEIGHT,
+                "sal_aux_loss": sal_aux_loss * self.cfg.LOSS.AUX_WEIGHT
             }
             ## end training
         else:

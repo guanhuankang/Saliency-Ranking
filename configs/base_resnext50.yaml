@@ -36,6 +36,7 @@ LOSS:
     SAL_COST: 5.0
     OBJ_POS: 30.0
     OBJ_NEG: 1.0
+    SAL_TERMINATE: true
     AUX_WEIGHT: 0.4
     AUX: "enable"
 DATASETS:

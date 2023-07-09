@@ -110,4 +110,8 @@ class GazeShift(nn.Module):
         ior = (q_vis / (q_vis.max(dim=1)[0].unsqueeze(1) + 1e-6)) * self.ior_embedding  ## B, nq, C
         for layer in self.layers:
             q = layer(q=q, z=z, qpe=qpe, zpe=zpe, ior=ior)
-        return self.saliency_head(q)  ## B, nq, 1
+
+        if self.training:
+            return self.saliency_head(q), []  ## B, nq, 1
+        else:
+            return self.saliency_head(q)

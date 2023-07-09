@@ -63,6 +63,7 @@ def add_custom_config(cfg, num_gpus=1):
     cfg.LOSS.SAL_COST = 1.0
     cfg.LOSS.OBJ_POS = 10.0
     cfg.LOSS.OBJ_NEG = 0.1
+    cfg.LOSS.SAL_TERMINATE = True
     cfg.LOSS.AUX = "disable"
     cfg.LOSS.AUX_WEIGHT = 0.4
 
