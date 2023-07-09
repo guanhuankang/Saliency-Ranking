@@ -49,7 +49,7 @@ DATASETS:
         GROUP3090: "/home/luke/dataset/SOR_RANK/coco_sor"
     ROOT: "datasets"
 DATALOADER:
-    NUM_WORKERS: 16
+    NUM_WORKERS: 8
 SOLVER:
     AMP:
         ENABLED: true

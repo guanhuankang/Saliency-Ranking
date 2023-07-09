@@ -192,7 +192,7 @@ class LookByMultiQ(nn.Module):
         multi_q = self.norm1(multi_q + self.dropout1(self.cross_attn1(q=multi_q+multi_qpe, k=z+zpe, v=z)))
         multi_q = multi_q.reshape(B*nq, h*w, -1)  ## B*nq, h*w, C
         multi_q = self.norm2(multi_q + self.dropout2(self.self_attn1(q=multi_q, k=multi_q, v=multi_q)))
-        multi_q = self.norm3(multi_q + self.ffn1(multi_q))  ## B*nq, h*w, C
+        multi_q = self.norm3(multi_q + self.dropout3(self.ffn1(multi_q)))  ## B*nq, h*w, C
         multi_q = multi_q.mean(dim=1).unflatten(0, (B, nq))  ## B, nq, C
 
         ## global branch
