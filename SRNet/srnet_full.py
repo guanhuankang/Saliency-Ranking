@@ -132,7 +132,8 @@ class SRNetFull(nn.Module):
                 else:
                     q_mask = q_ans.sum(dim=1, keepdim=True).gt(.5).float()  ## B, 1, 1
                     q_mask = q_mask.repeat_interleave(q_ans.shape[1], dim=1)  ## B, nq, 1
-
+                assert q_mask.shape==q_ans.shape, f"{q_mask.shape} != {q_ans.shape}"
+                
                 sal_loss += torch.sum(
                         F.binary_cross_entropy_with_logits(sal, q_ans, reduction="none") * q_mask
                     ) / (torch.sum(q_mask) + 1e-6)
