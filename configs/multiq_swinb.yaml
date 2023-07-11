@@ -1,26 +1,8 @@
 _BASE_: swinB_384_22k.yaml
 MODEL:
-    META_ARCHITECTURE: "SRNet"
-    PE: "APE"
+    META_ARCHITECTURE: "SRNetFull"
     SIS_HEAD:
         NAME: "MultiQ"
-        NUM_BLOCKS: 6
-    GAZE_SHIFT_HEAD:
-        NAME: "CenterShift"
-        NUM_BLOCKS: 6
-        KEY: "res5"
     MODULES:
         MULTIQ:
             GRID_SIZES: [[2,2], [3,3], [4,4]]
-LOSS:
-    CLS_COST: 1.0
-    MASK_COST: 1.0
-    BBOX_COST: 1.0
-    SAL_COST: 5.0
-    OBJ_POS: 30.0
-    OBJ_NEG: 1.0
-    SAL_TERMINATE: true
-    AUX_WEIGHT: 0.4
-    AUX: "enable"
-SOLVER:
-    WEIGHT_DECAY: 0.0001
