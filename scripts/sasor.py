@@ -1,8 +1,11 @@
-import os
+import pickle as pkl
 import numpy as np
-from PIL import Image
-import tqdm
+import os
+import cv2
 import pandas as pd
+import copy
+import pickle
+
 
 def calc_iou(mask_a, mask_b):
     intersection = (mask_a + mask_b >= 2).astype(np.float32).sum()
@@ -59,14 +62,30 @@ def evalu(results, iou_thread):
     print('\nCalculating Sprman ...\n')
     p_sum = 0
     num = len(results)
-
+    # if os.path.exists('rank_index.txt'):
+    #     os.remove('rank_index.txt')
+    # if os.path.exists('gt_index.txt'):
+    #     os.remove('gt_index.txt')
     for indx, result in enumerate(results):
         print('\r{}/{}'.format(indx+1, len(results)), end="", flush=True)
         gt_masks = result['gt_masks']
         segmaps = result['segmaps']
         gt_ranks = result['gt_ranks']
         rank_scores = result['rank_scores']
-        rank_scores = np.array(rank_scores)[:, None]
+        name = result['img_name']
+
+        # color_index = [sorted(rank_scores).index(a)+1 for a in rank_scores]
+        # color = [255./len(rank_scores)*a for a in color_index]
+        # all_segmaps = np.zeros_like(gt_masks[0])
+        # for i, seg in enumerate(segmaps):
+        #     seg[seg >= 0.5] = color[i]
+        #     all_segmaps += seg
+        # all_segmaps = all_segmaps.astype(np.int)
+        # result_dir = r'D:\dataset\salient_instance\SOC6K\soc_rank_saliency\test\result'
+        # cv2.imwrite(os.path.join(result_dir, '{}.png'.format(name)), all_segmaps)
+
+        #if name != 'COCO_val2014_000000202998.jpg':
+        #    continue
 
         if len(gt_ranks) == 1:
             num = num - 1
@@ -78,6 +97,24 @@ def evalu(results, iou_thread):
             rank_index = np.zeros_like(gt_ranks)
         else:
             rank_index = get_rank_index(gt_masks, segmaps, iou_thread, rank_scores, name)
+        # d = (gt_index - rank_index) ** 2
+        # dd = d.sum()
+        # n = max(len(gt_ranks), len(segmaps))
+        # # p = 1 - 6*dd/(n*(n**2-1))
+        # p = 1 - dd/n**3
+
+        # # # TODO save index result as txt
+        # rank_index_txt = copy.deepcopy(rank_index)
+        # gt_index_txt = copy.deepcopy(gt_index)
+        # rank_index_txt = [str(i) for i in rank_index_txt]
+        # rank_index_txt = ':'.join(rank_index_txt)
+        # gt_index_txt = [str(i) for i in gt_index_txt]
+        # gt_index_txt = ':'.join(gt_index_txt)
+        # # print(rank_index_txt, gt_index_txt)
+        # f = open('rank_index.txt', 'a')
+        # f.write('\n' + rank_index_txt)
+        # f = open('gt_index.txt', 'a')
+        # f.write('\n' + gt_index_txt)
 
         gt_index = pd.Series(gt_index)
         rank_index = pd.Series(rank_index)
@@ -89,35 +126,15 @@ def evalu(results, iou_thread):
             p_sum += p
         else:
             num -= 1
+        # print(indx, name, p)
+        # print(p)
 
     fianl_p = p_sum/num
     print(fianl_p)
     return fianl_p
 
-# gtpath = r"D:\SaliencyRanking\dataset\irsr\Images\test\gt"
-# predpath = r"D:\SaliencyRanking\comparedResults\IRSR\saliency_maps"
-gtpath = r"D:\SaliencyRanking\dataset\ASSR\ASSR\gt\test"
-predpath = r"D:\SaliencyRanking\ours\Saliency-Ranking\output\eval\merge"
 
-L = [x for x in os.listdir(gtpath) if x.endswith(".png")]
-input_data = []
-for name in tqdm.tqdm(L):
-    gt = np.array(Image.open(os.path.join(gtpath, name)).convert("L"))
-    pred = np.array(Image.open(os.path.join(predpath, name)).convert("L"))
-    gt_rank = np.unique(gt)
-    pred_rank = np.unique(pred)
-
-    gt_masks = [(gt == x) * 1 for x in gt_rank if x > 0]
-    segmaps = [(pred == x) * 1 for x in pred_rank if x > 0]
-    segmaps = np.array([]) if len(segmaps)==0 else np.stack(segmaps, axis=0)
-    gt_ranks = np.arange(len(gt_masks)) + 1
-    rank_scores = np.arange(len(segmaps)) + 1
-    img_data = {
-        "gt_masks": gt_masks,
-        "segmaps": segmaps,
-        "gt_ranks": gt_ranks,
-        "rank_scores": rank_scores
-    }
-    input_data.append(img_data)
-r = evalu(input_data, 0.5)
-print(r)
+if __name__ == '__main__':
+    f = open('../res.pkl', 'rb')
+    results = pickle.load(f)
+    evalu(results, 0.5)
