@@ -134,24 +134,22 @@ class SRNetFull(nn.Module):
                     bbox=pred_bboxes,  ## xyhw
                     size=tuple(zs[gaze_shift_key].shape[2::])
                 )
+                sal_loss += F.binary_cross_entropy_with_logits(sal, q_ans)
 
-                if self.cfg.LOSS.SAL_TERMINATE:
-                    q_mask = torch.ones_like(q_ans)
-                else:
-                    q_mask = q_ans.sum(dim=1, keepdim=True).gt(.5).float()  ## B, 1, 1
-                    q_mask = q_mask.repeat_interleave(q_ans.shape[1], dim=1)  ## B, nq, 1
-                assert q_mask.shape==q_ans.shape, f"{q_mask.shape} != {q_ans.shape}"
-                
-                sal_loss += torch.sum(
-                        F.binary_cross_entropy_with_logits(sal, q_ans, reduction="none") * q_mask
-                    ) / (torch.sum(q_mask) + 1e-6)
+                # if self.cfg.LOSS.SAL_TERMINATE:
+                #     q_mask = torch.ones_like(q_ans)
+                # else:
+                #     q_mask = q_ans.sum(dim=1, keepdim=True).gt(.5).float()  ## B, 1, 1
+                #     q_mask = q_mask.repeat_interleave(q_ans.shape[1], dim=1)  ## B, nq, 1
+                # assert q_mask.shape==q_ans.shape, f"{q_mask.shape} != {q_ans.shape}"
+                # sal_loss += torch.sum(
+                #         F.binary_cross_entropy_with_logits(sal, q_ans, reduction="none") * q_mask
+                #     ) / (torch.sum(q_mask) + 1e-6)
 
                 aux_pass = self.cfg.LOSS.AUX == "disable" or len(sal_auxs) <= 0
                 if not aux_pass:
                     for s_a in sal_auxs:
-                        sal_aux_loss += torch.sum(
-                            F.binary_cross_entropy_with_logits(s_a, q_ans, reduction="none") * q_mask
-                        ) / (torch.sum(q_mask) + 1e-6)
+                        sal_aux_loss += F.binary_cross_entropy_with_logits(s_a, q_ans)
 
             ## debugDump
             if np.random.rand() < 0.1:
