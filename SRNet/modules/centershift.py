@@ -131,6 +131,6 @@ class CenterShift(nn.Module):
         auxs = predictions[0:-1]
         
         if self.training:
-            return out, auxs
+            return out, []
         else:
             return out
