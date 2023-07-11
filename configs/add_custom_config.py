@@ -58,8 +58,10 @@ def add_custom_config(cfg, num_gpus=1):
 
     cfg.LOSS = CN()
     cfg.LOSS.CLS_COST = 1.0
-    cfg.LOSS.MASK_COST = 1.0
-    cfg.LOSS.BBOX_COST = 1.0
+    cfg.LOSS.MASK_CE_COST = 1.0
+    cfg.LOSS.MASK_DICE_COST = 1.0
+    cfg.LOSS.BBOX_L1_COST = 1.0
+    cfg.LOSS.BBOX_GIOU_COST = 1.0
     cfg.LOSS.SAL_COST = 1.0
     cfg.LOSS.OBJ_POS = 10.0
     cfg.LOSS.OBJ_NEG = 0.1

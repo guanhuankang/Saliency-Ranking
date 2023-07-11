@@ -31,12 +31,13 @@ MODEL:
         NUM_QUERIES: 100
 LOSS:
     CLS_COST: 1.0
-    MASK_COST: 1.0
-    BBOX_COST: 1.0
+    MASK_CE_COST: 1.0
+    MASK_DICE_COST: 1.0
+    BBOX_L1_COST: 1.0
+    BBOX_GIOU_COST: 1.0
     SAL_COST: 5.0
     OBJ_POS: 30.0
     OBJ_NEG: 1.0
-    SAL_TERMINATE: true
     AUX_WEIGHT: 0.4
     AUX: "enable"
 DATASETS:

@@ -1,0 +1,12 @@
+_BASE_: swinB_384_22k.yaml
+LOSS:
+    CLS_COST: 2.0
+    MASK_CE_COST: 5.0
+    MASK_DICE_COST: 5.0
+    BBOX_L1_COST: 5.0
+    BBOX_GIOU_COST: 2.0
+    SAL_COST: 5.0
+    OBJ_POS: 1.0
+    OBJ_NEG: 0.1
+    AUX_WEIGHT: 0.4
+    AUX: "enable"

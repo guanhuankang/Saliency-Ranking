@@ -4,7 +4,7 @@ from typing import Dict, List, Tuple
 from .loss import batch_mask_loss
 
 @torch.no_grad()
-def hungarianMatcher(preds: Dict, targets: List) -> Tuple:
+def hungarianMatcher(preds: Dict, targets: List, cfg=None) -> Tuple:
     """
         Params:
             preds: a dict:
@@ -24,7 +24,7 @@ def hungarianMatcher(preds: Dict, targets: List) -> Tuple:
         N, _, H, W = tgts.shape
         nq = len(masks)
 
-        mask_loss = batch_mask_loss(torch.repeat_interleave(masks, N, dim=0), tgts.repeat(nq, 1, 1, 1)).reshape(nq, N)  ## nq, N
+        mask_loss = batch_mask_loss(torch.repeat_interleave(masks, N, dim=0), tgts.repeat(nq, 1, 1, 1), cfg=cfg).reshape(nq, N)  ## nq, N
         cls_loss = -torch.sigmoid(preds["scores"][b]).repeat_interleave(N, dim=1)  ## nq, N
         cost_matrix = mask_loss + cls_loss  ## nq, N
         row_idxs, col_idxs = scipy.optimize.linear_sum_assignment(cost_matrix.detach().cpu().numpy())

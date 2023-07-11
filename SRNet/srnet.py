@@ -76,7 +76,7 @@ class SRNet(nn.Module):
             gt_size = masks[0].shape[-2::]
 
             pred_masks = F.interpolate(pred_masks, size=gt_size, mode="bilinear")
-            bi, qi, ti = hungarianMatcher(preds={"masks": pred_masks, "scores": pred_objs}, targets=masks)
+            bi, qi, ti = hungarianMatcher(preds={"masks": pred_masks, "scores": pred_objs}, targets=masks, cfg=self.cfg)
 
             q_masks = torch.stack([pad1d(m, dim=0, num=n_max, value=0.0) for m in masks], dim=0)  ## B, n_max, H, W
             q_boxes = torch.stack([pad1d(bb, dim=0, num=n_max, value=0.0) for bb in bboxes], dim=0)  ## B, n_max, 4
@@ -84,13 +84,19 @@ class SRNet(nn.Module):
             q_corresponse = torch.zeros_like(pred_objs)  ## B, nq, 1
             q_corresponse[bi, qi, 0] = (ti + 1).to(q_corresponse.dtype)  ## 1 to n_max
 
+            mask_loss = batch_mask_loss(pred_masks[bi, qi], q_masks[bi, ti], cfg=self.cfg).mean()
+            bbox_loss = batch_bbox_loss(xyhw2xyxy(pred_bboxes[bi, qi]), q_boxes[bi, ti], cfg=self.cfg).mean()
+            
             obj_pos_weight = torch.tensor(self.cfg.LOSS.OBJ_POS, device=self.device)
             obj_neg_weight = torch.tensor(self.cfg.LOSS.OBJ_NEG, device=self.device)
-
-            mask_loss = batch_mask_loss(pred_masks[bi, qi], q_masks[bi, ti]).mean()
-            bbox_loss = batch_bbox_loss(xyhw2xyxy(pred_bboxes[bi, qi]), q_boxes[bi, ti]).mean()
-            obj_loss = F.binary_cross_entropy_with_logits(pred_objs, q_corresponse.gt(.5).float(),
-                                                          pos_weight=obj_pos_weight) * obj_neg_weight
+            pos_mask = q_corresponse.gt(.5).float()
+            neg_mask = 1.0 - pos_mask
+            pos_obj_loss = F.binary_cross_entropy_with_logits(pred_objs, torch.ones_like(pred_objs), reduction="none")
+            neg_obj_loss = F.binary_cross_entropy_with_logits(pred_objs, torch.zeros_like(pred_objs), reduction="none")
+            obj_loss = (pos_obj_loss * obj_pos_weight * pos_mask + neg_obj_loss * obj_neg_weight * neg_mask).mean()
+            
+            # obj_loss = F.binary_cross_entropy_with_logits(pred_objs, q_corresponse.gt(.5).float(),
+            #                                               pos_weight=obj_pos_weight) * obj_neg_weight
 
             if self.cfg.LOSS.AUX == "disable" or len(auxs) <= 0:
                 aux_mask_loss = torch.zeros_like(mask_loss)
@@ -99,14 +105,16 @@ class SRNet(nn.Module):
                 aux_mask_loss = sum([
                     batch_mask_loss(
                         F.interpolate(aux["masks"], size=gt_size, mode="bilinear")[bi, qi],
-                        q_masks[bi, ti]
+                        q_masks[bi, ti],
+                        cfg=self.cfg
                     ).mean()
                     for aux in auxs
                 ])
                 aux_bbox_loss = sum([
                     batch_bbox_loss(
                         xyhw2xyxy(torch.sigmoid(aux["bboxes"][bi, qi])),
-                        q_boxes[bi, ti]
+                        q_boxes[bi, ti],
+                        cfg=self.cfg
                     ).mean()
                     for aux in auxs
                 ])
@@ -143,9 +151,9 @@ class SRNet(nn.Module):
                 )
 
             return {
-                "mask_loss": mask_loss * self.cfg.LOSS.MASK_COST,
+                "mask_loss": mask_loss,
+                "bbox_loss": bbox_loss,
                 "obj_loss": obj_loss * self.cfg.LOSS.CLS_COST,
-                "bbox_loss": bbox_loss * self.cfg.LOSS.BBOX_COST,
                 "sal_loss": sal_loss * self.cfg.LOSS.SAL_COST,
                 "aux_mask_loss": aux_mask_loss * self.cfg.LOSS.AUX_WEIGHT,
                 "aux_bbox_loss": aux_bbox_loss * self.cfg.LOSS.AUX_WEIGHT
