@@ -1,10 +1,9 @@
-import pickle as pkl
+import torch
 import numpy as np
-import os
+import os, sys
 import cv2
 import pandas as pd
-import copy
-import pickle
+from pycocotools.mask import decode
 
 
 def calc_iou(mask_a, mask_b):
@@ -68,10 +67,10 @@ def evalu(results, iou_thread):
     #     os.remove('gt_index.txt')
     for indx, result in enumerate(results):
         print('\r{}/{}'.format(indx+1, len(results)), end="", flush=True)
-        gt_masks = result['gt_masks']
-        segmaps = result['segmaps']
-        gt_ranks = result['gt_ranks']
-        rank_scores = result['rank_scores']
+        gt_masks = [decode(m) for m in result['gt_masks']]
+        segmaps = np.array([decode(m) for m in result['segmaps']])
+        gt_ranks = np.array(result['gt_ranks'])
+        rank_scores = np.array(result['rank_scores'])
         name = result['img_name']
 
         # color_index = [sorted(rank_scores).index(a)+1 for a in rank_scores]
@@ -135,6 +134,25 @@ def evalu(results, iou_thread):
 
 
 if __name__ == '__main__':
-    f = open('../res.pkl', 'rb')
-    results = pickle.load(f)
-    evalu(results, 0.5)
+    ## irsr_method dump-format
+    gt_file = "temp/assr_sasor_gt.pth"
+    ## our format
+    pred_file = "temp/our_assr_test.pth"
+
+    if len(sys.argv) >= 3:
+        _, gt_file, pred_file = sys.argv[0:3]
+    print("gt_file", gt_file, "pred_file", pred_file)
+    data = torch.load(gt_file)
+    pred = torch.load(pred_file)
+
+    print("gt_file:", len(data))
+    print("pred_file", len(pred))
+
+    for idx in range(len(data)):
+        name = data[idx]["img_name"][0:-4]
+        n = len(pred[name]["masks"])
+        data[idx]["segmaps"] = pred[name]["masks"]
+        data[idx]["rank_scores"] = np.linspace(1.0, 0.5, n)
+        data[idx]["scores"] = pred[name].get("scores", np.ones(n))
+    
+    print(evalu(data, 0.5))
