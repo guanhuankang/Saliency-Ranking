@@ -16,8 +16,8 @@ MODEL:
         KEY_FEATURES: ["res5", "res4", "res3"]
         MASK_KEY: "res2"
     GAZE_SHIFT_HEAD:
-        NAME: "GazeShift"
-        NUM_BLOCKS: 3
+        NAME: "CenterSoftMax"
+        NUM_BLOCKS: 6
         SIGMA: 10.0
         KERNEL_SIZE: 5
         ALPHA: 1.0
