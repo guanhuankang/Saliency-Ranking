@@ -30,14 +30,14 @@ MODEL:
         DROPOUT_FFN: 0.0
         NUM_QUERIES: 100
 LOSS:
-    CLS_COST: 1.0
-    MASK_CE_COST: 1.0
-    MASK_DICE_COST: 1.0
-    BBOX_L1_COST: 1.0
-    BBOX_GIOU_COST: 1.0
+    CLS_COST: 2.0
+    MASK_CE_COST: 5.0
+    MASK_DICE_COST: 5.0
+    BBOX_L1_COST: 5.0
+    BBOX_GIOU_COST: 2.0
     SAL_COST: 5.0
-    OBJ_POS: 30.0
-    OBJ_NEG: 1.0
+    OBJ_POS: 1.0
+    OBJ_NEG: 0.1
     AUX_WEIGHT: 0.4
     AUX: "enable"
 DATASETS:
