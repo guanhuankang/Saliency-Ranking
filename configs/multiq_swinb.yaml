@@ -1,8 +1,0 @@
-_BASE_: swinB_384_22k.yaml
-MODEL:
-    META_ARCHITECTURE: "SRNetFull"
-    SIS_HEAD:
-        NAME: "MultiQ"
-    MODULES:
-        MULTIQ:
-            GRID_SIZES: [[2,2], [3,3], [4,4]]

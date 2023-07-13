@@ -29,6 +29,9 @@ MODEL:
         DROPOUT_ATTN: 0.0
         DROPOUT_FFN: 0.0
         NUM_QUERIES: 100
+    MODULES:
+        MULTIQ:
+            GRID_SIZES: [[2,2], [3,3], [4,4]]
 LOSS:
     CLS_COST: 2.0
     MASK_CE_COST: 5.0
@@ -36,6 +39,8 @@ LOSS:
     BBOX_L1_COST: 5.0
     BBOX_GIOU_COST: 2.0
     SAL_COST: 5.0
+    SAL_POS: 1.0
+    SAL_NEG: 0.1
     OBJ_POS: 1.0
     OBJ_NEG: 0.1
     AUX_WEIGHT: 0.4

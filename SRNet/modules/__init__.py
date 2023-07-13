@@ -6,3 +6,4 @@ from .mask2former import Mask2Former
 from .multiq import MultiQ
 from .centershift import CenterShift
 from .centersoftmax import CenterSoftMax
+from .centersoftmaxN import CenterSoftMaxN
