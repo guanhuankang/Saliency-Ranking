@@ -162,7 +162,7 @@ class SRNetCCSD(nn.Module):
         else:
             ## inference
             size = tuple(zs[gaze_shift_key].shape[2::])
-            z = torch.max_pool2d(zs["res3"], kernel_size=(4,4)).flatten(2).transpose(-1, -2),
+            z = torch.max_pool2d(zs["res3"], kernel_size=(4,4)).flatten(2).transpose(-1, -2)
             zpe = zs_pe[gaze_shift_key].flatten(2).transpose(-1, -2)
             q_vis = torch.zeros_like(pred_objs)
             bs, nq, _ = q.shape
